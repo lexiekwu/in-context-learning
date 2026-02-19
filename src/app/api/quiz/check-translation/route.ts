@@ -8,23 +8,15 @@ import {
   validationError,
   notFoundError,
 } from "@/lib/errors";
-import { callLLM } from "@/lib/llm/call";
-import { TranslationCheckResponseSchema } from "@/lib/llm/schemas";
-import {
-  TRANSLATION_CHECK_SYSTEM_MESSAGE,
-  translationCheckUserMessage,
-} from "@/lib/llm/prompts";
-import { sanitizeForPrompt } from "@/lib/llm/sanitize";
 
 // ---------------------------------------------------------------------------
-// Lenient translation matching for dev mode (no LLM)
+// Lenient translation matching
 // ---------------------------------------------------------------------------
 
 /**
- * Check if a user's translation captures the core meaning of the target word.
- * Much more lenient than exact matching:
+ * Check if a user's translation captures the core meaning.
  * - Splits "to study / to learn" into individual meanings
- * - Strips common filler words (the, a, an, to, is, etc.)
+ * - Strips common filler words
  * - Accepts any keyword overlap as correct
  * - Handles synonyms and partial matches
  */
@@ -55,22 +47,19 @@ function lenientTranslationMatch(
   const userWords = extractKeywords(userTranslation);
 
   // Split expected meaning on / , ; to get alternate meanings
-  // e.g., "to study / to learn" → ["to study", "to learn"]
   const meaningVariants = expectedMeaning.split(/[\/;,]/).map((s) => s.trim());
 
   for (const variant of meaningVariants) {
     const expectedWords = extractKeywords(variant);
-    // If any keyword from the expected meaning appears in the user's translation
     for (const word of expectedWords) {
       if (userWords.has(word)) return true;
-      // Also check if any user word starts with or contains the expected keyword
       for (const uw of userWords) {
         if (uw.startsWith(word) || word.startsWith(uw)) return true;
       }
     }
   }
 
-  // Also check full substring containment as a last resort
+  // Full substring containment as a last resort
   const normalizedUser = userTranslation.trim().toLowerCase();
   for (const variant of meaningVariants) {
     const normalizedVariant = variant.trim().toLowerCase()
@@ -91,6 +80,7 @@ function lenientTranslationMatch(
 const RequestSchema = z.object({
   flashcardId: z.string().uuid(),
   generatedSentence: z.string().min(1),
+  generatedTranslation: z.string().optional(),
   userTranslation: z.string().min(1).max(1000),
 });
 
@@ -113,7 +103,7 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       throw validationError("Invalid request body", parsed.error.flatten());
     }
-    const { flashcardId, generatedSentence, userTranslation } = parsed.data;
+    const { flashcardId, generatedTranslation, userTranslation } = parsed.data;
 
     // Fetch the flashcard to get target word and meaning
     const flashcard = await db.flashcard.findFirst({
@@ -123,39 +113,18 @@ export async function POST(request: NextRequest) {
       throw notFoundError("Flashcard", flashcardId);
     }
 
-    // Dev fallback: if POE_API_KEY is not configured or is a placeholder, use lenient matching
-    const poeKey = process.env.POE_API_KEY;
-    if (!poeKey || poeKey.startsWith("your")) {
-      const isCorrect = lenientTranslationMatch(
-        userTranslation,
-        flashcard.englishMeaning
-      );
-      return NextResponse.json({
-        correct: isCorrect,
-        explanation: isCorrect
-          ? "Good translation!"
-          : `The expected meaning is "${flashcard.englishMeaning}".`,
-        targetWordUsedCorrectly: isCorrect,
-        suggestedTranslation: `I ${flashcard.englishMeaning} every day.`,
-      });
-    }
+    // Check against both the target word meaning and the generated sentence translation
+    const matchesMeaning = lenientTranslationMatch(
+      userTranslation,
+      flashcard.englishMeaning
+    );
+    const matchesTranslation = generatedTranslation
+      ? lenientTranslationMatch(userTranslation, generatedTranslation)
+      : false;
 
-    // Call LLM
-    const result = await callLLM({
-      systemMessage: TRANSLATION_CHECK_SYSTEM_MESSAGE,
-      userMessage: translationCheckUserMessage({
-        chineseSentence: sanitizeForPrompt(generatedSentence),
-        correctTranslation: "", // Not available client-side; LLM will assess directly
-        userTranslation: sanitizeForPrompt(userTranslation),
-        targetWord: sanitizeForPrompt(flashcard.word),
-        targetMeaning: sanitizeForPrompt(flashcard.englishMeaning),
-      }),
-      schema: TranslationCheckResponseSchema,
-      temperature: 0.3,
-      maxTokens: 1000,
-    });
+    const isCorrect = matchesMeaning || matchesTranslation;
 
-    return NextResponse.json(result);
+    return NextResponse.json({ correct: isCorrect });
   } catch (error) {
     return errorResponse(error);
   }

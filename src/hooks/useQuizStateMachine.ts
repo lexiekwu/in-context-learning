@@ -222,6 +222,7 @@ export function useQuizStateMachine(): QuizStateMachine {
           card.flashcard.id,
           card.sentence.sentence,
           trimmed,
+          card.sentence.translation,
         );
 
         setCard((prev) =>

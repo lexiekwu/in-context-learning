@@ -89,17 +89,18 @@ export function generateSentence(
   );
 }
 
-/** POST /api/quiz/check-translation — Have LLM grade a translation */
+/** POST /api/quiz/check-translation — Check translation correctness */
 export function checkTranslation(
   flashcardId: string,
   sentence: string,
   userTranslation: string,
+  generatedTranslation?: string,
 ): Promise<CheckTranslationResponse> {
   return fetchJson<CheckTranslationResponse>(
     "/api/quiz/check-translation",
     {
       method: "POST",
-      body: JSON.stringify({ flashcardId, generatedSentence: sentence, userTranslation }),
+      body: JSON.stringify({ flashcardId, generatedSentence: sentence, userTranslation, generatedTranslation }),
     },
   );
 }

@@ -42,18 +42,9 @@ export function TranslationFeedback({
         tabIndex={0}
         onKeyDown={(e) => e.key === "Enter" && onContinue()}
       >
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 text-lg text-green-400">
-            &#10003;
-          </span>
-          <div>
-            <p className="font-medium text-green-300">
-              {userTranslation}
-            </p>
-            <p className="mt-1 text-sm text-green-400">
-              {result.explanation}
-            </p>
-          </div>
+        <div className="flex items-center gap-3">
+          <span className="text-lg text-green-400">&#10003;</span>
+          <p className="font-medium text-green-300">Correct</p>
         </div>
         <p className="mt-2 text-xs text-green-500">
           Tap to continue
@@ -67,32 +58,16 @@ export function TranslationFeedback({
     <div className="w-full space-y-4">
       {/* User's incorrect answer */}
       <div className="rounded-lg border border-red-800 bg-red-900/20 p-4">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 text-lg text-red-400">
-            &#10007;
-          </span>
-          <div>
-            <p className="font-medium text-red-300">
-              {userTranslation}
-            </p>
-            <p className="mt-1 text-sm text-red-400">
-              {result.explanation}
-            </p>
-          </div>
+        <div className="flex items-center gap-3">
+          <span className="text-lg text-red-400">&#10007;</span>
+          <p className="font-medium text-red-300">Incorrect</p>
         </div>
       </div>
 
-      {/* Correct answer */}
+      {/* Target word meaning */}
       <div className="rounded-lg border border-zinc-700 bg-zinc-800 p-4">
-        <p className="text-sm font-medium text-zinc-400">
-          Correct translation:
-        </p>
-        <p className="mt-1 text-base text-zinc-100">
-          {result.suggestedTranslation}
-        </p>
-        <p className="mt-2 text-sm text-zinc-400">
-          <span className="font-semibold">{targetWord}</span> means &ldquo;
-          {targetMeaning}&rdquo;
+        <p className="text-sm text-zinc-400">
+          <span className="font-semibold">{targetWord}</span> means &ldquo;{targetMeaning}&rdquo;
         </p>
       </div>
 

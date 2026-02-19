@@ -124,9 +124,6 @@ export interface GenerateSentenceResponse {
 /** POST /api/quiz/check-translation response */
 export interface CheckTranslationResponse {
   correct: boolean;
-  explanation: string;
-  targetWordUsedCorrectly: boolean;
-  suggestedTranslation: string;
 }
 
 /** POST /api/quiz/check-pinyin response */

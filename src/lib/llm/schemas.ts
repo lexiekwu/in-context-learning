@@ -6,11 +6,7 @@ export const WordBreakdownItemSchema = z.object({
   word: z.string().min(1, "Word must not be empty"),
   pinyin: z
     .string()
-    .min(1)
-    .regex(
-      /^[a-z]+[0-5]?([a-z]+[0-5]?)*$/,
-      "Pinyin must be in numbered format (e.g., ni3hao3)"
-    ),
+    .min(1, "Pinyin must not be empty"),
   meaning: z.string().min(1, "Meaning must not be empty"),
 });
 
