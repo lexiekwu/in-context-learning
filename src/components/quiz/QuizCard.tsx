@@ -133,9 +133,9 @@ export function QuizCard({
       className="relative w-full px-4 py-6 sm:px-8"
       onClick={handleContainerClick}
     >
-      <div className="text-left sm:text-center">{renderSentence()}</div>
+      <div className="text-left">{renderSentence()}</div>
 
-      <p className="mt-3 text-xs text-zinc-500 sm:text-center">
+      <p className="mt-3 text-xs text-zinc-500">
         {typeof window !== "undefined" && "ontouchstart" in window
           ? "Tap and hold any word for pinyin + meaning"
           : "Hover over any word for pinyin + meaning"}

@@ -35,7 +35,7 @@ export function CardComplete({
       {/* Result badge */}
       <div
         className={cn(
-          "flex items-center justify-center gap-2 rounded-lg p-3 text-sm font-medium",
+          "flex items-center gap-2 rounded-lg p-3 text-sm font-medium",
           wasCorrect
             ? "bg-green-900/20 text-green-300"
             : "bg-amber-900/20 text-amber-300",
@@ -55,8 +55,8 @@ export function CardComplete({
 
       {/* Schedule info */}
       {scheduleResult && (
-        <div className="flex flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-800 p-4 sm:flex-row sm:items-center sm:justify-around">
-          <div className="text-center">
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-800 p-4 sm:flex-row sm:items-center sm:gap-6">
+          <div>
             <p className="text-xs uppercase tracking-wide text-zinc-400">
               Next Review
             </p>
@@ -64,7 +64,7 @@ export function CardComplete({
               {formatNextDue(scheduleResult.nextDue)}
             </p>
           </div>
-          <div className="text-center">
+          <div>
             <p className="text-xs uppercase tracking-wide text-zinc-400">
               State
             </p>
@@ -72,7 +72,7 @@ export function CardComplete({
               {scheduleResult.state}
             </p>
           </div>
-          <div className="text-center">
+          <div>
             <p className="text-xs uppercase tracking-wide text-zinc-400">
               Reps
             </p>
@@ -92,7 +92,7 @@ export function CardComplete({
         Next Card &rarr;
       </button>
 
-      <p className="text-center text-xs text-zinc-500">
+      <p className="text-xs text-zinc-500">
         Auto-advancing in 2 seconds...
       </p>
     </div>

@@ -9,7 +9,6 @@ import { PinyinFeedback } from "@/components/quiz/PinyinFeedback";
 import { CardComplete } from "@/components/quiz/CardComplete";
 import { SessionSummary } from "@/components/quiz/SessionSummary";
 import { LoadingSkeleton } from "@/components/quiz/LoadingSkeleton";
-import { cn } from "@/lib/cn";
 
 export default function QuizPage() {
   const quiz = useQuizStateMachine();
@@ -109,12 +108,14 @@ export default function QuizPage() {
   const showCardComplete =
     quiz.state === "CARD_RESULT" || quiz.state === "CARD_COMPLETE";
 
-  // Determine which phase we're in for the translation status indicator
-  const translationDone =
+  // Keep showing result cards even after moving to later phases
+  const showTranslationResult =
+    showTranslationFeedback ||
     showPinyinInput ||
     showPinyinFeedback ||
-    showCardComplete ||
-    quiz.state === "CARD_RESULT";
+    showCardComplete;
+  const showPinyinResult =
+    showPinyinFeedback || showCardComplete;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -150,26 +151,6 @@ export default function QuizPage() {
 
         {/* --- Translation phase --- */}
         <div className="space-y-4 px-4 sm:px-8">
-          {/* Translation status when we've moved past it */}
-          {translationDone && card.translationResult && (
-            <div
-              className={cn(
-                "flex items-center gap-2 rounded-lg p-3 text-sm",
-                card.translationResult.correct
-                  ? "bg-green-900/20 text-green-300"
-                  : "bg-red-900/20 text-red-300",
-              )}
-            >
-              <span>
-                {card.translationResult.correct ? "\u2713" : "\u2717"}
-              </span>
-              <span>
-                Translation:{" "}
-                {card.translationResult.correct ? "Correct" : "Incorrect"}
-              </span>
-            </div>
-          )}
-
           {/* Translation input — AWAITING_TRANSLATION */}
           {(quiz.state === "AWAITING_TRANSLATION" ||
             isCheckingTranslation) && (
@@ -180,15 +161,17 @@ export default function QuizPage() {
             />
           )}
 
-          {/* Translation feedback */}
-          {showTranslationFeedback && card.translationResult && (
+          {/* Translation feedback — persists through pinyin + card complete phases */}
+          {showTranslationResult && card.translationResult && (
             <TranslationFeedback
               result={card.translationResult}
               userTranslation={card.userTranslation}
               targetWord={card.flashcard.word}
               targetMeaning={card.flashcard.englishMeaning}
+              sentenceTranslation={card.sentence?.translation ?? ""}
               onContinue={quiz.advanceFromCorrect}
               onRetypeSuccess={quiz.retypeTranslation}
+              readonly={!showTranslationFeedback}
             />
           )}
 
@@ -202,13 +185,14 @@ export default function QuizPage() {
             />
           )}
 
-          {showPinyinFeedback && card.pinyinResult && (
+          {showPinyinResult && card.pinyinResult && (
             <PinyinFeedback
               result={card.pinyinResult}
               userPinyin={card.userPinyin}
               targetWord={card.flashcard.word}
               onContinue={quiz.advanceFromCorrect}
               onRetypeSuccess={quiz.retypePinyin}
+              readonly={!showPinyinFeedback}
             />
           )}
 

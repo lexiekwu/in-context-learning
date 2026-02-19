@@ -237,10 +237,9 @@ export function useQuizStateMachine(): QuizStateMachine {
 
         if (result.correct) {
           setState("TRANSLATION_CORRECT");
-          // Auto-advance after 800ms
           autoAdvanceTimer.current = setTimeout(() => {
             setState("PINYIN_INPUT");
-          }, 800);
+          }, 1000);
         } else {
           setState("TRANSLATION_INCORRECT");
         }
@@ -334,10 +333,10 @@ export function useQuizStateMachine(): QuizStateMachine {
 
         if (result.correct) {
           setState("PINYIN_CORRECT");
-          // Auto-advance after 800ms to CARD_RESULT
+          // Auto-advance after 1s to CARD_RESULT
           autoAdvanceTimer.current = setTimeout(() => {
             submitCardResult(true);
-          }, 800);
+          }, 1000);
         } else {
           setState("PINYIN_INCORRECT");
         }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { callLLM } from "@/lib/llm/call";
 import {
   errorResponse,
   unauthorizedError,
@@ -10,68 +11,45 @@ import {
 } from "@/lib/errors";
 
 // ---------------------------------------------------------------------------
-// Lenient translation matching
+// LLM prompt — focused narrowly on target word understanding
 // ---------------------------------------------------------------------------
 
-/**
- * Check if a user's translation captures the core meaning.
- * - Splits "to study / to learn" into individual meanings
- * - Strips common filler words
- * - Accepts any keyword overlap as correct
- * - Handles synonyms and partial matches
- */
-function lenientTranslationMatch(
-  userTranslation: string,
-  expectedMeaning: string
-): boolean {
-  const stopWords = new Set([
-    "i", "me", "my", "we", "you", "he", "she", "it", "they",
-    "the", "a", "an", "is", "am", "are", "was", "were", "be",
-    "to", "of", "in", "on", "at", "for", "with", "and", "or",
-    "not", "no", "do", "does", "did", "have", "has", "had",
-    "this", "that", "these", "those", "very", "really", "so",
-    "every", "day", "all", "also", "just", "still", "already",
-    "can", "will", "would", "should", "could", "may", "might",
-  ]);
+const SYSTEM_MESSAGE = `You are grading a Mandarin learner's English translation of a Chinese sentence.
 
-  function extractKeywords(text: string): Set<string> {
-    return new Set(
-      text
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, " ")
-        .split(/\s+/)
-        .filter((w) => w.length > 1 && !stopWords.has(w))
-    );
-  }
+Your ONLY job: decide if the student understood the meaning of the **target word** based on their translation.
 
-  const userWords = extractKeywords(userTranslation);
+Rules:
+- Be LENIENT on grammar, style, word order, and phrasing of the overall sentence.
+- Be STRICT on the target word. The student's translation must show they understood what the target word means in context. Synonyms and paraphrasing of the target word are fine.
+- If the target word's meaning is completely absent or wrong in the translation, mark incorrect.
 
-  // Split expected meaning on / , ; to get alternate meanings
-  const meaningVariants = expectedMeaning.split(/[\/;,]/).map((s) => s.trim());
+Respond with JSON: {"correct": true} or {"correct": false}
+Nothing else.`;
 
-  for (const variant of meaningVariants) {
-    const expectedWords = extractKeywords(variant);
-    for (const word of expectedWords) {
-      if (userWords.has(word)) return true;
-      for (const uw of userWords) {
-        if (uw.startsWith(word) || word.startsWith(uw)) return true;
-      }
-    }
-  }
+function buildUserMessage(params: {
+  chineseSentence: string;
+  referenceTranslation: string;
+  userTranslation: string;
+  targetWord: string;
+  targetMeaning: string;
+}): string {
+  return `Chinese sentence: ${params.chineseSentence}
+Reference translation: ${params.referenceTranslation}
+Student's translation: ${params.userTranslation}
 
-  // Full substring containment as a last resort
-  const normalizedUser = userTranslation.trim().toLowerCase();
-  for (const variant of meaningVariants) {
-    const normalizedVariant = variant.trim().toLowerCase()
-      .replace(/^to /, "")
-      .replace(/^be /, "");
-    if (normalizedVariant.length > 2 && normalizedUser.includes(normalizedVariant)) {
-      return true;
-    }
-  }
+Target word: ${params.targetWord}
+Target word meaning: ${params.targetMeaning}
 
-  return false;
+Is the target word's meaning reflected in the student's translation? {"correct": true or false}`;
 }
+
+// ---------------------------------------------------------------------------
+// Response schema — minimal
+// ---------------------------------------------------------------------------
+
+const ResponseSchema = z.object({
+  correct: z.boolean(),
+});
 
 // ---------------------------------------------------------------------------
 // Request validation
@@ -103,7 +81,7 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       throw validationError("Invalid request body", parsed.error.flatten());
     }
-    const { flashcardId, generatedTranslation, userTranslation } = parsed.data;
+    const { flashcardId, generatedSentence, generatedTranslation, userTranslation } = parsed.data;
 
     // Fetch the flashcard to get target word and meaning
     const flashcard = await db.flashcard.findFirst({
@@ -113,18 +91,23 @@ export async function POST(request: NextRequest) {
       throw notFoundError("Flashcard", flashcardId);
     }
 
-    // Check against both the target word meaning and the generated sentence translation
-    const matchesMeaning = lenientTranslationMatch(
-      userTranslation,
-      flashcard.englishMeaning
-    );
-    const matchesTranslation = generatedTranslation
-      ? lenientTranslationMatch(userTranslation, generatedTranslation)
-      : false;
+    // Ask LLM to judge whether the target word's meaning is reflected
+    const result = await callLLM({
+      systemMessage: SYSTEM_MESSAGE,
+      userMessage: buildUserMessage({
+        chineseSentence: generatedSentence,
+        referenceTranslation: generatedTranslation ?? "",
+        userTranslation,
+        targetWord: flashcard.word,
+        targetMeaning: flashcard.englishMeaning,
+      }),
+      schema: ResponseSchema,
+      maxRetries: 1,
+      temperature: 0.1,
+      maxTokens: 1000,
+    });
 
-    const isCorrect = matchesMeaning || matchesTranslation;
-
-    return NextResponse.json({ correct: isCorrect });
+    return NextResponse.json({ correct: result.correct });
   } catch (error) {
     return errorResponse(error);
   }
