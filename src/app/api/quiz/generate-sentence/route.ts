@@ -108,18 +108,71 @@ export async function POST(request: NextRequest) {
     const poeKey = process.env.POE_API_KEY;
     if (!poeKey || poeKey.startsWith("your")) {
       const word = flashcard.word;
-      const mockResult = {
-        sentence: `我每天都${word}。`,
-        sentenceWithHighlight: `我每天都<mark>${word}</mark>。`,
-        translation: `I ${flashcard.englishMeaning} every day.`,
-        wordBreakdown: [
-          { word: "我", pinyin: "wo3", meaning: "I" },
-          { word: "每天", pinyin: "mei3tian1", meaning: "every day" },
-          { word: "都", pinyin: "dou1", meaning: "all / always" },
-          { word: word, pinyin: flashcard.pinyin, meaning: flashcard.englishMeaning },
-        ],
-      };
-      return NextResponse.json(mockResult);
+      const meaning = flashcard.englishMeaning;
+      const pin = flashcard.pinyin;
+
+      // Pick a varied template based on flashcard ID hash
+      const templates = [
+        {
+          sentence: `他很喜歡${word}。`,
+          translation: `He really likes to ${meaning}.`,
+          breakdown: [
+            { word: "他", pinyin: "ta1", meaning: "he" },
+            { word: "很", pinyin: "hen3", meaning: "very" },
+            { word: "喜歡", pinyin: "xi3huan1", meaning: "to like" },
+            { word, pinyin: pin, meaning },
+          ],
+        },
+        {
+          sentence: `我想${word}。`,
+          translation: `I want to ${meaning}.`,
+          breakdown: [
+            { word: "我", pinyin: "wo3", meaning: "I" },
+            { word: "想", pinyin: "xiang3", meaning: "to want" },
+            { word, pinyin: pin, meaning },
+          ],
+        },
+        {
+          sentence: `你可以${word}嗎？`,
+          translation: `Can you ${meaning}?`,
+          breakdown: [
+            { word: "你", pinyin: "ni3", meaning: "you" },
+            { word: "可以", pinyin: "ke3yi3", meaning: "can" },
+            { word, pinyin: pin, meaning },
+            { word: "嗎", pinyin: "ma5", meaning: "(question particle)" },
+          ],
+        },
+        {
+          sentence: `我們一起${word}吧。`,
+          translation: `Let's ${meaning} together.`,
+          breakdown: [
+            { word: "我們", pinyin: "wo3men5", meaning: "we" },
+            { word: "一起", pinyin: "yi4qi3", meaning: "together" },
+            { word, pinyin: pin, meaning },
+            { word: "吧", pinyin: "ba5", meaning: "(suggestion particle)" },
+          ],
+        },
+        {
+          sentence: `她每天都${word}。`,
+          translation: `She ${meaning}s every day.`,
+          breakdown: [
+            { word: "她", pinyin: "ta1", meaning: "she" },
+            { word: "每天", pinyin: "mei3tian1", meaning: "every day" },
+            { word: "都", pinyin: "dou1", meaning: "all / always" },
+            { word, pinyin: pin, meaning },
+          ],
+        },
+      ];
+
+      const idx = flashcard.id.charCodeAt(0) % templates.length;
+      const tpl = templates[idx];
+
+      return NextResponse.json({
+        sentence: tpl.sentence,
+        sentenceWithHighlight: tpl.sentence.replace(word, `<mark>${word}</mark>`),
+        translation: tpl.translation,
+        wordBreakdown: tpl.breakdown,
+      });
     }
 
     // Call LLM

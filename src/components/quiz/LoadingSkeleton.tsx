@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 
 interface LoadingSkeletonProps {
-  /** Message shown below the skeleton, e.g. "Generating sentence..." */
   message?: string;
-  /** If true, shows "Taking longer than usual..." after 3 seconds */
   showSlowWarning?: boolean;
 }
 
@@ -26,22 +24,22 @@ export function LoadingSkeleton({
     <div className="flex w-full flex-col items-center gap-6 py-8">
       {/* Sentence skeleton */}
       <div className="w-full max-w-lg space-y-3">
-        <div className="h-6 w-3/4 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
-        <div className="h-6 w-1/2 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
+        <div className="h-6 w-3/4 animate-pulse rounded bg-zinc-700" />
+        <div className="h-6 w-1/2 animate-pulse rounded bg-zinc-700" />
       </div>
 
       {/* Input skeleton */}
       <div className="w-full max-w-lg space-y-3">
-        <div className="h-12 w-full animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
-        <div className="h-11 w-full animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800 sm:w-48" />
+        <div className="h-12 w-full animate-pulse rounded-lg bg-zinc-800" />
+        <div className="h-11 w-full animate-pulse rounded-lg bg-zinc-800 sm:w-48" />
       </div>
 
       {/* Status message */}
       <div className="flex flex-col items-center gap-1">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">{message}</p>
+        <p className="text-sm text-zinc-400">{message}</p>
         <p
           className={cn(
-            "text-xs text-amber-600 transition-opacity duration-300 dark:text-amber-400",
+            "text-xs text-amber-400 transition-opacity duration-300",
             isSlow ? "opacity-100" : "opacity-0",
           )}
         >

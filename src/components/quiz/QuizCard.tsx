@@ -7,7 +7,6 @@ import { cn } from "@/lib/cn";
 interface QuizCardProps {
   sentence: string;
   wordBreakdown: WordBreakdownEntry[];
-  /** Whether the target word tooltip should be suppressed (during active quiz) */
   suppressTargetTooltip?: boolean;
 }
 
@@ -51,13 +50,11 @@ export function QuizCard({
 
   const handleMouseLeave = useCallback(() => {
     clearHoverTimeout();
-    // Delay dismissal so user can move to tooltip
     hoverTimeout.current = setTimeout(() => {
       setTooltip(null);
     }, 200);
   }, [clearHoverTimeout]);
 
-  // Long-press for mobile
   const longPressTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleTouchStart = useCallback(
@@ -82,7 +79,6 @@ export function QuizCard({
     }
   }, []);
 
-  // Dismiss tooltip on outside tap
   const handleContainerClick = useCallback(
     (e: React.MouseEvent) => {
       if (tooltip && !(e.target as HTMLElement).closest("[data-word-entry]")) {
@@ -92,12 +88,10 @@ export function QuizCard({
     [tooltip],
   );
 
-  // Build rendered words from the breakdown
-  // If breakdown is available, render word-by-word. Otherwise, render raw sentence.
   const renderSentence = () => {
     if (!wordBreakdown.length) {
       return (
-        <p className="text-xl leading-relaxed text-zinc-900 sm:text-2xl dark:text-zinc-100">
+        <p className="text-xl leading-relaxed text-zinc-100 sm:text-2xl">
           {sentence}
         </p>
       );
@@ -112,8 +106,8 @@ export function QuizCard({
             className={cn(
               "cursor-default transition-colors",
               entry.isTarget
-                ? "rounded bg-amber-100 px-1 font-bold text-amber-900 underline decoration-amber-400 decoration-2 underline-offset-4 sm:font-semibold sm:no-underline dark:bg-amber-900/30 dark:text-amber-200"
-                : "text-zinc-900 hover:text-blue-700 dark:text-zinc-100 dark:hover:text-blue-300",
+                ? "rounded bg-amber-900/30 px-1 font-bold text-amber-200 underline decoration-amber-400 decoration-2 underline-offset-4 sm:font-semibold sm:no-underline"
+                : "text-zinc-100 hover:text-indigo-300",
               !entry.isTarget && "cursor-pointer",
             )}
             onMouseEnter={(e) => handleMouseEnter(entry, e)}
@@ -134,20 +128,17 @@ export function QuizCard({
       className="relative w-full px-4 py-6 sm:px-8"
       onClick={handleContainerClick}
     >
-      {/* Sentence */}
       <div className="text-left sm:text-center">{renderSentence()}</div>
 
-      {/* Hint text */}
-      <p className="mt-3 text-xs text-zinc-400 sm:text-center dark:text-zinc-500">
+      <p className="mt-3 text-xs text-zinc-500 sm:text-center">
         {typeof window !== "undefined" && "ontouchstart" in window
           ? "Tap and hold any word for pinyin + meaning"
           : "Hover over any word for pinyin + meaning"}
       </p>
 
-      {/* Tooltip */}
       {tooltip && (
         <div
-          className="fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border border-zinc-200 bg-white px-4 py-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-800"
+          className="fixed z-50 -translate-x-1/2 -translate-y-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 shadow-lg"
           style={{
             left: tooltip.x,
             top: tooltip.y - 8,
@@ -156,13 +147,13 @@ export function QuizCard({
           onMouseEnter={clearHoverTimeout}
           onMouseLeave={handleMouseLeave}
         >
-          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+          <p className="text-lg font-semibold text-zinc-100">
             {tooltip.word.word}
           </p>
-          <p className="font-mono text-sm text-blue-600 dark:text-blue-400">
+          <p className="font-mono text-sm text-indigo-400">
             {tooltip.word.pinyin}
           </p>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-400">
             {tooltip.word.meaning}
           </p>
         </div>

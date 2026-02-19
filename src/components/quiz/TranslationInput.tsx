@@ -30,8 +30,6 @@ export function TranslationInput({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Do not auto-submit on Enter for translation (spec: user may want to review)
-      // But allow Shift+Enter for newline, and Enter to submit
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSubmit();
@@ -56,13 +54,12 @@ export function TranslationInput({
         autoCorrect="off"
         spellCheck={false}
         className={cn(
-          "w-full resize-none rounded-lg border px-4 py-3 text-base text-zinc-900 outline-none transition-colors",
-          "placeholder:text-zinc-400",
-          "focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20",
-          "dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-blue-400",
+          "w-full resize-none rounded-lg border bg-zinc-900 px-4 py-3 text-base text-zinc-100 outline-none transition-colors",
+          "placeholder:text-zinc-500",
+          "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20",
           flashRed
             ? "border-red-400 ring-2 ring-red-400/20"
-            : "border-zinc-300 dark:border-zinc-600",
+            : "border-zinc-600",
           (disabled || isLoading) && "cursor-not-allowed opacity-60",
         )}
       />
@@ -73,9 +70,8 @@ export function TranslationInput({
         className={cn(
           "min-h-11 w-full rounded-lg px-6 py-3 text-base font-medium text-white transition-colors",
           "sm:w-auto",
-          "bg-blue-600 hover:bg-blue-700 active:bg-blue-800",
-          "disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500",
-          "dark:bg-blue-500 dark:hover:bg-blue-600 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400",
+          "bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700",
+          "disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400",
         )}
       >
         {isLoading ? (

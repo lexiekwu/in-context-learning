@@ -110,11 +110,11 @@ export default function CardsPage() {
       {/* Page header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+          <h1 className="text-2xl font-bold text-zinc-50">
             Flashcards
           </h1>
           {!loading && (
-            <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="mt-0.5 text-sm text-zinc-400">
               {totalCount} card{totalCount !== 1 ? "s" : ""} total
             </p>
           )}
@@ -122,7 +122,7 @@ export default function CardsPage() {
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <svg
             className="h-4 w-4"
@@ -149,7 +149,7 @@ export default function CardsPage() {
           <div className="flex items-center gap-2">
             <label
               htmlFor="sort-select"
-              className="text-xs font-medium text-zinc-500 dark:text-zinc-400"
+              className="text-xs font-medium text-zinc-400"
             >
               Sort by
             </label>
@@ -157,7 +157,7 @@ export default function CardsPage() {
               id="sort-select"
               value={sort}
               onChange={(e) => setSort(e.target.value as SortOption)}
-              className="rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-800 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+              className="rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-sm text-zinc-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -171,7 +171,7 @@ export default function CardsPage() {
 
       {/* Error */}
       {error && (
-        <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400">
+        <div className="rounded-lg bg-red-900/30 px-4 py-3 text-sm text-red-400">
           {error}
         </div>
       )}
@@ -182,7 +182,7 @@ export default function CardsPage() {
           {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
-              className="h-[68px] animate-pulse rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800/50"
+              className="h-[68px] animate-pulse rounded-lg border border-zinc-800 bg-zinc-800/50"
             />
           ))}
         </div>
@@ -190,14 +190,14 @@ export default function CardsPage() {
 
       {/* Empty state */}
       {!loading && !error && cards.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-300 px-6 py-16 dark:border-zinc-700">
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-700 px-6 py-16">
           <div className="mb-3 text-4xl">&#x5B57;</div>
-          <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-200">
+          <h2 className="text-lg font-semibold text-zinc-200">
             {search || stateFilter.length > 0
               ? "No matching flashcards"
               : "No flashcards yet"}
           </h2>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-zinc-400">
             {search || stateFilter.length > 0
               ? "Try adjusting your search or filters."
               : "Create your first card to start learning!"}
@@ -206,7 +206,7 @@ export default function CardsPage() {
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             >
               <svg
                 className="h-4 w-4"
@@ -250,7 +250,7 @@ export default function CardsPage() {
               if (nextCursor) fetchCards(nextCursor);
             }}
             disabled={loadingMore}
-            className="rounded-lg border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="rounded-lg border border-zinc-700 px-5 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 disabled:opacity-50"
           >
             {loadingMore ? "Loading..." : "Load more"}
           </button>

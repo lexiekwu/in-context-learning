@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuizStateMachine } from "@/hooks/useQuizStateMachine";
-import { QuizHeader } from "@/components/quiz/QuizHeader";
 import { QuizCard } from "@/components/quiz/QuizCard";
 import { TranslationInput } from "@/components/quiz/TranslationInput";
 import { TranslationFeedback } from "@/components/quiz/TranslationFeedback";
@@ -20,22 +19,18 @@ export default function QuizPage() {
   // -------------------------------------------------------------------
   if (quiz.state === "SESSION_START" && !quiz.sessionId) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
+      <div className="flex flex-1 flex-col items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
-          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-3xl font-bold text-zinc-100">
             Mandarin Quiz
           </h1>
-          <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+          <p className="mt-2 text-zinc-400">
             Review your flashcards with in-context sentences
           </p>
           <button
             type="button"
             onClick={quiz.startSession}
-            className={cn(
-              "mt-8 min-h-11 w-full rounded-lg px-8 py-4 text-lg font-semibold text-white transition-colors",
-              "bg-blue-600 hover:bg-blue-700 active:bg-blue-800",
-              "dark:bg-blue-500 dark:hover:bg-blue-600",
-            )}
+            className="mt-8 min-h-11 w-full rounded-lg bg-indigo-600 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-indigo-500 active:bg-indigo-700"
           >
             Start Quiz
           </button>
@@ -49,11 +44,9 @@ export default function QuizPage() {
   // -------------------------------------------------------------------
   if (quiz.state === "SESSION_SUMMARY") {
     return (
-      <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-        <QuizHeader
-          stats={quiz.stats}
-          sessionStartTime={quiz.sessionStartTime}
-        />
+      <div className="flex flex-1 flex-col">
+        {/* Stats bar */}
+        <QuizStatsBar stats={quiz.stats} sessionStartTime={quiz.sessionStartTime} />
         <div className="flex flex-1 items-center justify-center">
           <SessionSummary
             stats={quiz.stats}
@@ -73,11 +66,8 @@ export default function QuizPage() {
     quiz.state === "CARD_START"
   ) {
     return (
-      <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-        <QuizHeader
-          stats={quiz.stats}
-          sessionStartTime={quiz.sessionStartTime}
-        />
+      <div className="flex flex-1 flex-col">
+        <QuizStatsBar stats={quiz.stats} sessionStartTime={quiz.sessionStartTime} />
         <div className="flex flex-1 items-center justify-center px-4">
           <LoadingSkeleton
             message="Generating sentence..."
@@ -94,11 +84,8 @@ export default function QuizPage() {
   const card = quiz.card;
   if (!card || !card.sentence) {
     return (
-      <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-        <QuizHeader
-          stats={quiz.stats}
-          sessionStartTime={quiz.sessionStartTime}
-        />
+      <div className="flex flex-1 flex-col">
+        <QuizStatsBar stats={quiz.stats} sessionStartTime={quiz.sessionStartTime} />
         <div className="flex flex-1 items-center justify-center px-4">
           <LoadingSkeleton message="Loading..." />
         </div>
@@ -130,22 +117,19 @@ export default function QuizPage() {
     quiz.state === "CARD_RESULT";
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-      <QuizHeader
-        stats={quiz.stats}
-        sessionStartTime={quiz.sessionStartTime}
-      />
+    <div className="flex flex-1 flex-col">
+      <QuizStatsBar stats={quiz.stats} sessionStartTime={quiz.sessionStartTime} />
 
       {/* Error toast */}
       {quiz.error && (
-        <div className="mx-4 mt-2 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20">
-          <p className="text-sm text-red-700 dark:text-red-300">
+        <div className="mx-4 mt-2 flex items-center justify-between rounded-lg border border-red-800 bg-red-900/20 px-4 py-3">
+          <p className="text-sm text-red-300">
             {quiz.error}
           </p>
           <button
             type="button"
             onClick={quiz.dismissError}
-            className="ml-4 text-sm font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+            className="ml-4 text-sm font-medium text-red-400 hover:text-red-300"
           >
             Dismiss
           </button>
@@ -162,16 +146,16 @@ export default function QuizPage() {
 
         {/* Target word indicator */}
         <div className="mb-4 px-4 sm:px-8">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="text-sm text-zinc-400">
             Target word:{" "}
-            <span className="font-bold text-amber-700 dark:text-amber-300">
+            <span className="font-bold text-amber-300">
               {card.flashcard.word}
             </span>
           </p>
         </div>
 
         {/* Divider */}
-        <div className="mx-4 mb-4 border-t border-zinc-200 sm:mx-8 dark:border-zinc-700" />
+        <div className="mx-4 mb-4 border-t border-zinc-700 sm:mx-8" />
 
         {/* --- Translation phase --- */}
         <div className="space-y-4 px-4 sm:px-8">
@@ -181,8 +165,8 @@ export default function QuizPage() {
               className={cn(
                 "flex items-center gap-2 rounded-lg p-3 text-sm",
                 card.translationResult.correct
-                  ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300"
-                  : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300",
+                  ? "bg-green-900/20 text-green-300"
+                  : "bg-red-900/20 text-red-300",
               )}
             >
               <span>
@@ -247,6 +231,65 @@ export default function QuizPage() {
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline stats bar (replaces the removed QuizHeader — slimmer, no nav)
+// ---------------------------------------------------------------------------
+import { useEffect, useState } from "react";
+import type { SessionStats } from "@/hooks/useQuizStateMachine";
+
+function QuizStatsBar({
+  stats,
+  sessionStartTime,
+}: {
+  stats: SessionStats;
+  sessionStartTime: number | null;
+}) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!sessionStartTime) return;
+    const interval = setInterval(() => {
+      setElapsed(Date.now() - sessionStartTime);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [sessionStartTime]);
+
+  const accuracy =
+    stats.cardsReviewed > 0
+      ? Math.round((stats.cardsCorrect / stats.cardsReviewed) * 100)
+      : 0;
+
+  const totalSeconds = Math.floor(elapsed / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const timeStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+  return (
+    <div className="flex w-full items-center justify-between border-b border-zinc-800 px-4 py-2.5">
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-zinc-300">
+          Cards: {stats.cardsReviewed}
+        </span>
+        {stats.cardsReviewed > 0 && (
+          <span className="text-xs text-zinc-400">
+            {accuracy}% accuracy
+          </span>
+        )}
+      </div>
+
+      {stats.currentStreak > 1 && (
+        <div className="text-sm font-medium text-amber-400">
+          Streak: {stats.currentStreak}
+        </div>
+      )}
+
+      <div className="font-mono text-sm text-zinc-400">
+        {sessionStartTime ? timeStr : "--:--"}
+      </div>
     </div>
   );
 }

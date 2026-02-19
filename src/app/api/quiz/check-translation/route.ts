@@ -17,6 +17,74 @@ import {
 import { sanitizeForPrompt } from "@/lib/llm/sanitize";
 
 // ---------------------------------------------------------------------------
+// Lenient translation matching for dev mode (no LLM)
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if a user's translation captures the core meaning of the target word.
+ * Much more lenient than exact matching:
+ * - Splits "to study / to learn" into individual meanings
+ * - Strips common filler words (the, a, an, to, is, etc.)
+ * - Accepts any keyword overlap as correct
+ * - Handles synonyms and partial matches
+ */
+function lenientTranslationMatch(
+  userTranslation: string,
+  expectedMeaning: string
+): boolean {
+  const stopWords = new Set([
+    "i", "me", "my", "we", "you", "he", "she", "it", "they",
+    "the", "a", "an", "is", "am", "are", "was", "were", "be",
+    "to", "of", "in", "on", "at", "for", "with", "and", "or",
+    "not", "no", "do", "does", "did", "have", "has", "had",
+    "this", "that", "these", "those", "very", "really", "so",
+    "every", "day", "all", "also", "just", "still", "already",
+    "can", "will", "would", "should", "could", "may", "might",
+  ]);
+
+  function extractKeywords(text: string): Set<string> {
+    return new Set(
+      text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 1 && !stopWords.has(w))
+    );
+  }
+
+  const userWords = extractKeywords(userTranslation);
+
+  // Split expected meaning on / , ; to get alternate meanings
+  // e.g., "to study / to learn" → ["to study", "to learn"]
+  const meaningVariants = expectedMeaning.split(/[\/;,]/).map((s) => s.trim());
+
+  for (const variant of meaningVariants) {
+    const expectedWords = extractKeywords(variant);
+    // If any keyword from the expected meaning appears in the user's translation
+    for (const word of expectedWords) {
+      if (userWords.has(word)) return true;
+      // Also check if any user word starts with or contains the expected keyword
+      for (const uw of userWords) {
+        if (uw.startsWith(word) || word.startsWith(uw)) return true;
+      }
+    }
+  }
+
+  // Also check full substring containment as a last resort
+  const normalizedUser = userTranslation.trim().toLowerCase();
+  for (const variant of meaningVariants) {
+    const normalizedVariant = variant.trim().toLowerCase()
+      .replace(/^to /, "")
+      .replace(/^be /, "");
+    if (normalizedVariant.length > 2 && normalizedUser.includes(normalizedVariant)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Request validation
 // ---------------------------------------------------------------------------
 
@@ -55,13 +123,13 @@ export async function POST(request: NextRequest) {
       throw notFoundError("Flashcard", flashcardId);
     }
 
-    // Dev fallback: if POE_API_KEY is not configured or is a placeholder, do a simple string match
+    // Dev fallback: if POE_API_KEY is not configured or is a placeholder, use lenient matching
     const poeKey = process.env.POE_API_KEY;
     if (!poeKey || poeKey.startsWith("your")) {
-      const normalizedUser = userTranslation.trim().toLowerCase();
-      const normalizedExpected = flashcard.englishMeaning.trim().toLowerCase();
-      const isCorrect = normalizedUser.includes(normalizedExpected) ||
-        normalizedExpected.includes(normalizedUser);
+      const isCorrect = lenientTranslationMatch(
+        userTranslation,
+        flashcard.englishMeaning
+      );
       return NextResponse.json({
         correct: isCorrect,
         explanation: isCorrect

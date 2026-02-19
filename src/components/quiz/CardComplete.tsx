@@ -37,8 +37,8 @@ export function CardComplete({
         className={cn(
           "flex items-center justify-center gap-2 rounded-lg p-3 text-sm font-medium",
           wasCorrect
-            ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300"
-            : "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
+            ? "bg-green-900/20 text-green-300"
+            : "bg-amber-900/20 text-amber-300",
         )}
       >
         {wasCorrect ? (
@@ -55,28 +55,28 @@ export function CardComplete({
 
       {/* Schedule info */}
       {scheduleResult && (
-        <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 sm:flex-row sm:items-center sm:justify-around dark:border-zinc-700 dark:bg-zinc-800">
+        <div className="flex flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-800 p-4 sm:flex-row sm:items-center sm:justify-around">
           <div className="text-center">
-            <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs uppercase tracking-wide text-zinc-400">
               Next Review
             </p>
-            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            <p className="text-lg font-semibold text-zinc-100">
               {formatNextDue(scheduleResult.nextDue)}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs uppercase tracking-wide text-zinc-400">
               State
             </p>
-            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            <p className="text-lg font-semibold text-zinc-100">
               {scheduleResult.state}
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs uppercase tracking-wide text-zinc-400">
               Reps
             </p>
-            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            <p className="text-lg font-semibold text-zinc-100">
               {scheduleResult.reps}
             </p>
           </div>
@@ -87,16 +87,12 @@ export function CardComplete({
       <button
         type="button"
         onClick={onNextCard}
-        className={cn(
-          "min-h-11 w-full rounded-lg px-6 py-3 text-base font-medium text-white transition-colors",
-          "bg-blue-600 hover:bg-blue-700 active:bg-blue-800",
-          "dark:bg-blue-500 dark:hover:bg-blue-600",
-        )}
+        className="min-h-11 w-full rounded-lg bg-indigo-600 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-indigo-500 active:bg-indigo-700"
       >
         Next Card &rarr;
       </button>
 
-      <p className="text-center text-xs text-zinc-400 dark:text-zinc-500">
+      <p className="text-center text-xs text-zinc-500">
         Auto-advancing in 2 seconds...
       </p>
     </div>

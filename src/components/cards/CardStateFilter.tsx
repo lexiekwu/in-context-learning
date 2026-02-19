@@ -7,9 +7,9 @@ const STATES: { value: CardState; label: string; color: string; activeColor: str
   {
     value: "NEW" as CardState,
     label: "New",
-    color: "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-400",
+    color: "border-indigo-700 text-indigo-400",
     activeColor:
-      "bg-blue-100 border-blue-500 text-blue-800 dark:bg-blue-900/40 dark:border-blue-500 dark:text-blue-300",
+      "bg-indigo-900/40 border-indigo-500 text-indigo-300",
   },
   {
     value: "LEARNING" as CardState,

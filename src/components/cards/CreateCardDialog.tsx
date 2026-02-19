@@ -195,7 +195,7 @@ export default function CreateCardDialog({
             className={cn(
               "flex-1 py-2.5 text-center text-sm font-medium transition-colors",
               tab === "manual"
-                ? "border-b-2 border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                ? "border-b-2 border-indigo-400 text-indigo-400"
                 : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300",
             )}
           >
@@ -210,7 +210,7 @@ export default function CreateCardDialog({
             className={cn(
               "flex-1 py-2.5 text-center text-sm font-medium transition-colors",
               tab === "ai"
-                ? "border-b-2 border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                ? "border-b-2 border-indigo-400 text-indigo-400"
                 : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300",
             )}
           >
@@ -238,7 +238,7 @@ export default function CreateCardDialog({
                   value={word}
                   onChange={(e) => setWord(e.target.value)}
                   placeholder="e.g. 學習"
-                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div>
@@ -250,7 +250,7 @@ export default function CreateCardDialog({
                   value={pinyin}
                   onChange={(e) => setPinyin(e.target.value)}
                   placeholder="e.g. xue2xi2"
-                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div>
@@ -262,7 +262,7 @@ export default function CreateCardDialog({
                   value={meaning}
                   onChange={(e) => setMeaning(e.target.value)}
                   placeholder="e.g. to study / to learn"
-                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
@@ -270,7 +270,7 @@ export default function CreateCardDialog({
                 type="button"
                 onClick={handleManualCreate}
                 disabled={loading}
-                className="w-full rounded-md bg-blue-600 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                className="w-full rounded-md bg-indigo-600 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
               >
                 {loading ? "Creating..." : "Create Card"}
               </button>
@@ -292,14 +292,14 @@ export default function CreateCardDialog({
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !loading) handleAiGenerate();
                       }}
-                      className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleAiGenerate}
                     disabled={loading}
-                    className="w-full rounded-md bg-blue-600 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                    className="w-full rounded-md bg-indigo-600 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
                   >
                     {loading ? (
                       <span className="inline-flex items-center gap-2">
@@ -343,7 +343,7 @@ export default function CreateCardDialog({
                       type="text"
                       value={aiWord}
                       onChange={(e) => setAiWord(e.target.value)}
-                      className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
@@ -354,7 +354,7 @@ export default function CreateCardDialog({
                       type="text"
                       value={aiPinyin}
                       onChange={(e) => setAiPinyin(e.target.value)}
-                      className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
@@ -365,7 +365,7 @@ export default function CreateCardDialog({
                       type="text"
                       value={aiMeaning}
                       onChange={(e) => setAiMeaning(e.target.value)}
-                      className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
@@ -376,7 +376,7 @@ export default function CreateCardDialog({
                       type="text"
                       value={aiExample}
                       onChange={(e) => setAiExample(e.target.value)}
-                      className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                      className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -384,7 +384,7 @@ export default function CreateCardDialog({
                       type="button"
                       onClick={handleAiSave}
                       disabled={loading}
-                      className="flex-1 rounded-md bg-blue-600 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                      className="flex-1 rounded-md bg-indigo-600 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
                     >
                       {loading ? "Saving..." : "Save Card"}
                     </button>
