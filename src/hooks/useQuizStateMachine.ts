@@ -257,15 +257,31 @@ export function useQuizStateMachine(): QuizStateMachine {
   );
 
   // -------------------------------------------------------------------------
-  // retypeTranslation — case-insensitive match against stored englishMeaning
+  // retypeTranslation — lenient match against stored englishMeaning
   // -------------------------------------------------------------------------
   const retypeTranslation = useCallback(
     (translation: string): boolean => {
       if (!card) return false;
       setState("RETYPING_TRANSLATION");
-      const trimmed = translation.trim().toLowerCase();
-      const expected = card.flashcard.englishMeaning.trim().toLowerCase();
-      if (trimmed === expected) {
+
+      // Normalize: strip parentheticals, punctuation, spaces, dashes, lowercase
+      const normalize = (s: string) =>
+        s.replace(/\(.*?\)/g, "")          // remove (parenthetical) content
+         .replace(/[^a-zA-Z0-9]/g, "")     // strip all non-alphanumeric
+         .toLowerCase();
+
+      const userNorm = normalize(translation);
+
+      // Accept if it matches any slash/semicolon/comma-separated variant
+      const variants = card.flashcard.englishMeaning.split(/[\/;,]/);
+      for (const variant of variants) {
+        if (normalize(variant) === userNorm) {
+          setState("PINYIN_INPUT");
+          return true;
+        }
+      }
+      // Also check full meaning normalized
+      if (normalize(card.flashcard.englishMeaning) === userNorm) {
         setState("PINYIN_INPUT");
         return true;
       }
