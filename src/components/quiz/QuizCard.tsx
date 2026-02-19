@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 interface QuizCardProps {
   sentence: string;
   wordBreakdown: WordBreakdownEntry[];
+  targetWord?: string;
   suppressTargetTooltip?: boolean;
 }
 
@@ -19,6 +20,7 @@ interface TooltipState {
 export function QuizCard({
   sentence,
   wordBreakdown,
+  targetWord,
   suppressTargetTooltip = true,
 }: QuizCardProps) {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -99,25 +101,28 @@ export function QuizCard({
 
     return (
       <p className="text-xl leading-relaxed sm:text-2xl">
-        {wordBreakdown.map((entry, i) => (
+        {wordBreakdown.map((entry, i) => {
+          const isTarget = entry.isTarget || (targetWord != null && entry.word === targetWord);
+          return (
           <span
             key={`${entry.word}-${i}`}
             data-word-entry
             className={cn(
               "cursor-default transition-colors",
-              entry.isTarget
-                ? "rounded bg-amber-900/30 px-1 font-bold text-amber-200 underline decoration-amber-400 decoration-2 underline-offset-4 sm:font-semibold sm:no-underline"
+              isTarget
+                ? "font-bold text-zinc-50 underline decoration-amber-400 decoration-2 underline-offset-4"
                 : "text-zinc-100 hover:text-indigo-300",
-              !entry.isTarget && "cursor-pointer",
+              !isTarget && "cursor-pointer",
             )}
-            onMouseEnter={(e) => handleMouseEnter(entry, e)}
+            onMouseEnter={(e) => handleMouseEnter({ ...entry, isTarget }, e)}
             onMouseLeave={handleMouseLeave}
-            onTouchStart={(e) => handleTouchStart(entry, e)}
+            onTouchStart={(e) => handleTouchStart({ ...entry, isTarget }, e)}
             onTouchEnd={handleTouchEnd}
           >
             {entry.word}
           </span>
-        ))}
+          );
+        })}
       </p>
     );
   };

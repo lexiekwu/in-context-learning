@@ -141,18 +141,9 @@ export default function QuizPage() {
         <QuizCard
           sentence={card.sentence.sentence}
           wordBreakdown={card.sentence.wordBreakdown}
+          targetWord={card.flashcard.word}
           suppressTargetTooltip={!showCardComplete}
         />
-
-        {/* Target word indicator */}
-        <div className="mb-4 px-4 sm:px-8">
-          <p className="text-sm text-zinc-400">
-            Target word:{" "}
-            <span className="font-bold text-amber-300">
-              {card.flashcard.word}
-            </span>
-          </p>
-        </div>
 
         {/* Divider */}
         <div className="mx-4 mb-4 border-t border-zinc-700 sm:mx-8" />
