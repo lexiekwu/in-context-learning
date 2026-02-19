@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  LAPSED
+  CANCELLED
+}
+
+enum CharacterSet {
+  TRADITIONAL
+  SIMPLIFIED
+}
+
+enum CardState {
+  NEW
+  LEARNING
+  REVIEW
+  RELEARNING
+}
+
+enum Rating {
+  AGAIN
+  GOOD
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+model User {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                String             @unique
+  name                 String
+  avatarUrl            String?
+  googleId             String             @unique
+  characterSet         CharacterSet       @default(TRADITIONAL)
+  subscriptionStatus   SubscriptionStatus @default(TRIAL)
+  trialEndsAt          DateTime           @default(dbgenerated("now() + interval '7 days'"))
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  flashcards    Flashcard[]
+  reviewLogs    ReviewLog[]
+  studySessions StudySession[]
+
+  @@index([stripeCustomerId])
+}
+
+model Flashcard {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String    @db.Uuid
+  word            String
+  pinyin          String
+  englishMeaning  String
+  exampleSentence String?
+  difficulty      Float     @default(0)
+  stability       Float     @default(0)
+  due             DateTime  @default(now())
+  elapsed_days    Int       @default(0)
+  scheduled_days  Int       @default(0)
+  reps            Int       @default(0)
+  lapses          Int       @default(0)
+  state           CardState @default(NEW)
+  lastReview      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewLogs ReviewLog[]
+
+  @@unique([userId, word])
+  @@index([userId, due])
+}
+
+model ReviewLog {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  flashcardId          String    @db.Uuid
+  userId               String    @db.Uuid
+  sessionId            String    @db.Uuid
+  generatedSentence    String
+  sentenceResponseJson String?
+  priorState           CardState
+  userTranslation      String
+  correctTranslation   String
+  translationCorrect   Boolean
+  userPinyin           String
+  pinyinCorrect        Boolean
+  overallRating        Rating
+  reviewedAt           DateTime  @default(now())
+  responseTimeMs       Int?
+
+  flashcard    Flashcard    @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studySession StudySession @relation(fields: [sessionId], references: [id])
+
+  @@index([userId, reviewedAt])
+  @@index([flashcardId, reviewedAt])
+  @@index([sessionId])
+}
+
+model StudySession {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String    @db.Uuid
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  cardsReviewed Int       @default(0)
+  cardsCorrect  Int       @default(0)
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewLogs ReviewLog[]
+
+  @@index([userId, startedAt])
+}
