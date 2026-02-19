@@ -46,6 +46,9 @@ export function TranslationFeedback({
           <span className="text-lg text-green-400">&#10003;</span>
           <p className="font-medium text-green-300">Correct</p>
         </div>
+        <p className="mt-1 text-sm text-zinc-400">
+          <span className="font-semibold text-zinc-300">{targetWord}</span> &mdash; {targetMeaning}
+        </p>
         <p className="mt-2 text-xs text-green-500">
           Tap to continue
         </p>
