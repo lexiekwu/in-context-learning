@@ -29,12 +29,6 @@ const RequestSchema = z.object({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function deriveUserLevel(totalCards: number): "beginner" | "intermediate" | "advanced" {
-  if (totalCards < 300) return "beginner";
-  if (totalCards <= 1500) return "intermediate";
-  return "advanced";
-}
-
 function startOfToday(): Date {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -92,10 +86,6 @@ export async function POST(request: NextRequest) {
         // Cache parse failed — regenerate below
       }
     }
-
-    // Derive user level from total card count
-    const totalCards = await db.flashcard.count({ where: { userId } });
-    const userLevel = deriveUserLevel(totalCards);
 
     // Get character set from user profile
     const user = await db.user.findUniqueOrThrow({
@@ -187,12 +177,11 @@ export async function POST(request: NextRequest) {
         targetWord: sanitizeForPrompt(flashcard.word),
         pinyin: sanitizeForPrompt(flashcard.pinyin),
         meaning: sanitizeForPrompt(flashcard.englishMeaning),
-        userLevel,
         characterSet,
       }),
       schema: SentenceGenerationResponseSchema,
       temperature: 0.7,
-      maxTokens: 500,
+      maxTokens: 2000,
     });
 
     return NextResponse.json(result);

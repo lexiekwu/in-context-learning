@@ -18,15 +18,10 @@ Rules you MUST follow:
 3. The neutral tone is tone 0 (e.g., 嗎 = ma0, 的 = de0).
 4. Generate exactly ONE sentence that uses the target word naturally.
 5. The sentence should sound like something a native speaker would actually say — conversational and natural, not textbook-stilted.
-6. Other words in the sentence should be at or below the learner's level. Do NOT introduce obscure vocabulary.
+6. Match the sentence complexity to the target word itself. If the word is basic (e.g. 你, 吃), use a simple sentence. If the word is advanced (e.g. 推動, 反映), use a more sophisticated sentence with appropriate context. The rest of the vocabulary in the sentence should be simpler than the target word.
 7. Wrap the target word in <mark> tags in the sentenceWithHighlight field.
 8. The wordBreakdown must segment the sentence into individual words (not characters, unless the word IS a single character). Every word in the sentence must appear in the breakdown, in order.
 9. The translation should be natural English, not word-for-word.
-
-Level guidelines:
-- beginner: Use simple sentence structures (SVO). Max 6-8 words. Common daily vocabulary only.
-- intermediate: Allow compound sentences, common idioms, richer vocabulary. Max 10-14 words.
-- advanced: Natural complexity, idiomatic expressions, literary or formal register allowed. Max 18+ words.
 
 Respond with valid JSON only. No markdown, no code fences, no extra text.`;
 }
@@ -35,10 +30,9 @@ export function sentenceGenerationUserMessage(params: {
   targetWord: string;
   pinyin: string;
   meaning: string;
-  userLevel: string;
   characterSet: string;
 }): string {
-  return `Generate a sentence for a ${params.userLevel}-level learner using this word. Use ${params.characterSet} Chinese characters.
+  return `Generate a sentence using this word. Use ${params.characterSet} Chinese characters.
 
 Word: ${params.targetWord}
 Pinyin: ${params.pinyin}

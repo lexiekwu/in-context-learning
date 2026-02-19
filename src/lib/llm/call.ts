@@ -108,7 +108,7 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
     try {
       // Create an AbortController for the 10s timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20_000);
+      const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
       let response;
       try {
