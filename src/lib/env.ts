@@ -17,12 +17,12 @@ const serverEnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1),
   NEXTAUTH_URL: z.string().url(),
 
-  // Poe API
-  POE_API_KEY: z.string().min(1),
+  // Poe API (optional in dev — required for LLM features)
+  POE_API_KEY: z.string().min(1).optional(),
 
-  // Stripe
-  STRIPE_SECRET_KEY: z.string().min(1),
-  STRIPE_WEBHOOK_SECRET: z.string().min(1),
+  // Stripe (optional in dev — required for billing)
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
 
   // Upstash Redis (optional — rate limiting is disabled when absent)
   UPSTASH_REDIS_REST_URL: z.string().optional(),

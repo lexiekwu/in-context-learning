@@ -49,7 +49,8 @@ async function fetchJson<T>(
     let message = `Request failed: ${res.status}`;
     try {
       const body = await res.json();
-      if (body?.error) message = body.error;
+      if (body?.error?.message) message = body.error.message;
+      else if (typeof body?.error === "string") message = body.error;
     } catch {
       // ignore parse failure
     }
@@ -98,7 +99,7 @@ export function checkTranslation(
     "/api/quiz/check-translation",
     {
       method: "POST",
-      body: JSON.stringify({ flashcardId, sentence, userTranslation }),
+      body: JSON.stringify({ flashcardId, generatedSentence: sentence, userTranslation }),
     },
   );
 }
@@ -118,9 +119,11 @@ export function checkPinyin(
 export function submitResult(
   input: SubmitResultInput,
 ): Promise<SubmitResultResponse> {
+  // Map frontend 'rating' to backend 'overallRating'
+  const { rating, ...rest } = input;
   return fetchJson<SubmitResultResponse>("/api/quiz/submit-result", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...rest, overallRating: rating }),
   });
 }
 
@@ -149,10 +152,23 @@ export function getFlashcards(
   if (params.cursor) searchParams.set("cursor", params.cursor);
   if (params.limit) searchParams.set("limit", String(params.limit));
   if (params.state?.length) {
-    for (const s of params.state) searchParams.append("state", s);
+    searchParams.set("state", params.state.join(","));
   }
   if (params.search) searchParams.set("search", params.search);
-  if (params.sort) searchParams.set("sort", params.sort);
+  if (params.sort) {
+    // Frontend uses "due_asc", "created_desc", "word_asc" format
+    // Backend expects separate sort and order params
+    const sortMap: Record<string, { sort: string; order: string }> = {
+      due_asc: { sort: "due", order: "asc" },
+      created_desc: { sort: "createdAt", order: "desc" },
+      word_asc: { sort: "word", order: "asc" },
+    };
+    const mapped = sortMap[params.sort];
+    if (mapped) {
+      searchParams.set("sort", mapped.sort);
+      searchParams.set("order", mapped.order);
+    }
+  }
   const qs = searchParams.toString();
   return fetchJson<FlashcardListResponse>(
     `/api/flashcards${qs ? `?${qs}` : ""}`,
@@ -189,7 +205,8 @@ export async function deleteFlashcard(id: string): Promise<void> {
     let message = `Request failed: ${res.status}`;
     try {
       const body = await res.json();
-      if (body?.error) message = body.error;
+      if (body?.error?.message) message = body.error.message;
+      else if (typeof body?.error === "string") message = body.error;
     } catch {
       // ignore
     }

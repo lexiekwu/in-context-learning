@@ -213,7 +213,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(
-      { card: toFlashcardResponse(card) },
+      { flashcard: toFlashcardResponse(card) },
       { status: 201 }
     );
   } catch (err) {

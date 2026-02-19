@@ -104,6 +104,24 @@ export async function POST(request: NextRequest) {
     });
     const characterSet = user.characterSet.toLowerCase() as "traditional" | "simplified";
 
+    // Dev fallback: if POE_API_KEY is not configured or is a placeholder, return mock data
+    const poeKey = process.env.POE_API_KEY;
+    if (!poeKey || poeKey.startsWith("your")) {
+      const word = flashcard.word;
+      const mockResult = {
+        sentence: `我每天都${word}。`,
+        sentenceWithHighlight: `我每天都<mark>${word}</mark>。`,
+        translation: `I ${flashcard.englishMeaning} every day.`,
+        wordBreakdown: [
+          { word: "我", pinyin: "wo3", meaning: "I" },
+          { word: "每天", pinyin: "mei3tian1", meaning: "every day" },
+          { word: "都", pinyin: "dou1", meaning: "all / always" },
+          { word: word, pinyin: flashcard.pinyin, meaning: flashcard.englishMeaning },
+        ],
+      };
+      return NextResponse.json(mockResult);
+    }
+
     // Call LLM
     const result: SentenceGenerationResponse = await callLLM({
       systemMessage: sentenceGenerationSystemMessage(characterSet),

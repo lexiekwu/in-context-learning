@@ -1,7 +1,5 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import { db } from "@/lib/db";
-import { env } from "@/lib/env";
 
 /**
  * Auth.js (NextAuth v5) configuration.
@@ -13,14 +11,19 @@ import { env } from "@/lib/env";
  *   PrismaAdapter expects Account/Session models we intentionally omit.
  * - JWT callbacks embed userId, email, and name into the token so
  *   API routes can read them without a DB lookup.
+ *
+ * IMPORTANT: The `db` import is lazy (dynamic import) because this module
+ * is loaded in Edge Runtime (middleware) where Node.js-only modules like
+ * `pg` are not available. The DB callbacks only run during sign-in/JWT
+ * enrichment which happens in the Node.js runtime, not in Edge middleware.
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
 
   providers: [
     Google({
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
 
@@ -33,6 +36,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider !== "google" || !profile?.email) {
         return false;
       }
+
+      // Lazy import to avoid loading pg in Edge Runtime
+      const { db } = await import("@/lib/db");
 
       // Upsert: create user on first sign-in, update on subsequent ones
       await db.user.upsert({
@@ -60,6 +66,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, account, profile }) {
       // On initial sign-in, look up the user we just upserted
       if (account?.provider === "google" && profile?.sub) {
+        const { db } = await import("@/lib/db");
+
         const dbUser = await db.user.findUnique({
           where: { googleId: profile.sub },
           select: { id: true, name: true, email: true },

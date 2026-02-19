@@ -359,39 +359,60 @@ export function useQuizStateMachine(): QuizStateMachine {
   // -------------------------------------------------------------------------
   // submitCardResult — internal helper to submit FSRS result
   // -------------------------------------------------------------------------
+  // Use a ref for card to avoid stale closures in submitCardResult
+  const cardRef = useRef(card);
+  cardRef.current = card;
+
   const submitCardResult = useCallback(
     async (fromCorrectPinyin: boolean) => {
-      if (!card || !sessionId || !card.sentence) return;
+      const currentCard = cardRef.current;
+      if (!currentCard || !sessionId || !currentCard.sentence) return;
       try {
         setState("CARD_RESULT");
         const isCorrect = fromCorrectPinyin
-          ? card.currentCardCorrect
+          ? currentCard.currentCardCorrect
           : false; // if retyping pinyin, the pinyin was wrong
 
         // Determine the actual currentCardCorrect — need to check latest state
-        const cardCorrect = isCorrect && card.currentCardCorrect;
+        const cardCorrect = isCorrect && currentCard.currentCardCorrect;
         const rating = cardCorrect ? "GOOD" : "AGAIN";
 
-        const responseTimeMs = Date.now() - card.responseStartTime;
+        const responseTimeMs = Date.now() - currentCard.responseStartTime;
 
         const result = await api.submitResult({
           sessionId,
-          flashcardId: card.flashcard.id,
+          flashcardId: currentCard.flashcard.id,
           rating: rating as "GOOD" | "AGAIN",
-          generatedSentence: card.sentence.sentence,
-          userTranslation: card.userTranslation,
-          correctTranslation: card.sentence.translation,
-          translationCorrect: card.translationResult?.correct ?? false,
-          userPinyin: card.userPinyin,
-          pinyinCorrect: card.pinyinResult?.correct ?? false,
+          generatedSentence: currentCard.sentence.sentence,
+          userTranslation: currentCard.userTranslation || "no translation",
+          correctTranslation: currentCard.sentence.translation,
+          translationCorrect: currentCard.translationResult?.correct ?? false,
+          userPinyin: currentCard.userPinyin || "unknown",
+          pinyinCorrect: currentCard.pinyinResult?.correct ?? false,
           responseTimeMs,
         });
 
-        setCard((prev) =>
-          prev
-            ? { ...prev, scheduleResult: result.flashcard }
-            : prev,
-        );
+        // The API returns { updatedCard, sessionStats } — map to scheduleResult
+        const apiResult = result as unknown as {
+          updatedCard?: { state: string; due: string; stability: number; difficulty: number };
+        };
+        if (apiResult.updatedCard) {
+          setCard((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  scheduleResult: {
+                    id: currentCard.flashcard.id,
+                    nextDue: apiResult.updatedCard!.due,
+                    state: apiResult.updatedCard!.state as never,
+                    stability: apiResult.updatedCard!.stability,
+                    difficulty: apiResult.updatedCard!.difficulty,
+                    reps: currentCard.flashcard.reps + 1,
+                  },
+                }
+              : prev,
+          );
+        }
 
         setStats((prev) => {
           const newReviewed = prev.cardsReviewed + 1;
@@ -420,7 +441,8 @@ export function useQuizStateMachine(): QuizStateMachine {
         );
       }
     },
-    [card, sessionId, loadNextCard],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sessionId, loadNextCard],
   );
 
   // -------------------------------------------------------------------------

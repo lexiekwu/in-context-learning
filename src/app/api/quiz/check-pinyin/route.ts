@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         correct: false,
         correctPinyin: flashcard.pinyin,
+      expectedPinyin: flashcard.pinyin,
         feedback: result.toneMarkMessage,
       });
     }
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       correct: result.correct,
       correctPinyin: flashcard.pinyin,
+      expectedPinyin: flashcard.pinyin,
     });
   } catch (error) {
     return errorResponse(error);

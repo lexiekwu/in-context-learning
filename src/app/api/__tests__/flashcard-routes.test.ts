@@ -178,10 +178,10 @@ describe("POST /api/flashcards", () => {
     const json = await res.json();
 
     expect(res.status).toBe(201);
-    expect(json.card).toBeDefined();
-    expect(json.card.word).toBe("你好");
-    expect(json.card.pinyin).toBe("ni3hao3");
-    expect(json.card.englishMeaning).toBe("hello");
+    expect(json.flashcard).toBeDefined();
+    expect(json.flashcard.word).toBe("你好");
+    expect(json.flashcard.pinyin).toBe("ni3hao3");
+    expect(json.flashcard.englishMeaning).toBe("hello");
   });
 
   it("returns 409 for duplicate word", async () => {

@@ -55,6 +55,23 @@ export async function POST(request: NextRequest) {
       throw notFoundError("Flashcard", flashcardId);
     }
 
+    // Dev fallback: if POE_API_KEY is not configured or is a placeholder, do a simple string match
+    const poeKey = process.env.POE_API_KEY;
+    if (!poeKey || poeKey.startsWith("your")) {
+      const normalizedUser = userTranslation.trim().toLowerCase();
+      const normalizedExpected = flashcard.englishMeaning.trim().toLowerCase();
+      const isCorrect = normalizedUser.includes(normalizedExpected) ||
+        normalizedExpected.includes(normalizedUser);
+      return NextResponse.json({
+        correct: isCorrect,
+        explanation: isCorrect
+          ? "Good translation!"
+          : `The expected meaning is "${flashcard.englishMeaning}".`,
+        targetWordUsedCorrectly: isCorrect,
+        suggestedTranslation: `I ${flashcard.englishMeaning} every day.`,
+      });
+    }
+
     // Call LLM
     const result = await callLLM({
       systemMessage: TRANSLATION_CHECK_SYSTEM_MESSAGE,
