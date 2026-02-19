@@ -164,7 +164,12 @@ export async function POST(request: NextRequest) {
         },
       ];
 
-      const idx = flashcard.id.charCodeAt(0) % templates.length;
+      // Simple hash over the full UUID for better distribution
+      let hash = 0;
+      for (let i = 0; i < flashcard.id.length; i++) {
+        hash = (hash * 31 + flashcard.id.charCodeAt(i)) | 0;
+      }
+      const idx = Math.abs(hash) % templates.length;
       const tpl = templates[idx];
 
       return NextResponse.json({
