@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       }),
       schema: TranslationCheckResponseSchema,
       temperature: 0.3,
-      maxTokens: 300,
+      maxTokens: 1000,
     });
 
     return NextResponse.json(result);

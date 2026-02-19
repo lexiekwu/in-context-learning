@@ -16,7 +16,7 @@ export interface CallLLMOptions<T> {
   model?: string;
   /** Temperature (default: 0.7). */
   temperature?: number;
-  /** Max tokens (default: 500). */
+  /** Max tokens (default: 1000). */
   maxTokens?: number;
 }
 
@@ -24,12 +24,32 @@ export interface CallLLMOptions<T> {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Strip markdown code fences that LLMs sometimes wrap around JSON. */
+/** Strip markdown code fences, preamble text, and thinking blocks from LLM output. */
 function stripCodeFences(text: string): string {
-  return text
-    .replace(/^```(?:json)?\s*\n?/i, "")
-    .replace(/\n?```\s*$/i, "")
-    .trim();
+  let cleaned = text.trim();
+
+  // Remove thinking blocks (e.g., <think>...</think>)
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  // If wrapped in code fences, extract the content inside
+  const fenceMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/i);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].trim();
+  }
+
+  // If there's text before the first {, strip it (preamble like "Here is the JSON:")
+  const firstBrace = cleaned.indexOf("{");
+  if (firstBrace > 0) {
+    cleaned = cleaned.slice(firstBrace);
+  }
+
+  // If there's text after the last }, strip it
+  const lastBrace = cleaned.lastIndexOf("}");
+  if (lastBrace >= 0 && lastBrace < cleaned.length - 1) {
+    cleaned = cleaned.slice(0, lastBrace + 1);
+  }
+
+  return cleaned.trim();
 }
 
 /** Check if an error is an HTTP rate-limit response (429). */
@@ -78,17 +98,17 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
     systemMessage,
     userMessage,
     schema,
-    maxRetries = 1,
+    maxRetries = 2,
     model = DEFAULT_MODEL,
     temperature = 0.7,
-    maxTokens = 500,
+    maxTokens = 1000,
   } = options;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       // Create an AbortController for the 10s timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10_000);
+      const timeoutId = setTimeout(() => controller.abort(), 20_000);
 
       let response;
       try {
@@ -101,6 +121,7 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
             ],
             temperature,
             max_tokens: maxTokens,
+            response_format: { type: "json_object" },
           },
           { signal: controller.signal }
         );
@@ -124,6 +145,11 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
       try {
         parsed = JSON.parse(cleaned);
       } catch {
+        // Retryable — LLM may produce valid JSON on next attempt
+        if (attempt < maxRetries) {
+          console.warn(`[callLLM] Malformed JSON on attempt ${attempt + 1}, retrying...`, cleaned.slice(0, 200));
+          continue;
+        }
         throw new AppError(
           ErrorCode.LLM_ERROR,
           "Malformed JSON in LLM response",
@@ -134,6 +160,11 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
       // Validate with Zod schema
       const result = schema.safeParse(parsed);
       if (!result.success) {
+        // Retryable — LLM may produce valid schema on next attempt
+        if (attempt < maxRetries) {
+          console.warn(`[callLLM] Schema validation failed on attempt ${attempt + 1}, retrying...`, result.error.flatten());
+          continue;
+        }
         throw new AppError(
           ErrorCode.LLM_ERROR,
           "LLM response failed schema validation",

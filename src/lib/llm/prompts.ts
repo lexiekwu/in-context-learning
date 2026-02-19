@@ -84,11 +84,14 @@ export function translationCheckUserMessage(params: {
   targetWord: string;
   targetMeaning: string;
 }): string {
+  const refLine = params.correctTranslation
+    ? `Reference translation: ${params.correctTranslation}\n`
+    : "";
+
   return `Grade this translation:
 
 Chinese sentence: ${params.chineseSentence}
-Reference translation: ${params.correctTranslation}
-Student's translation: ${params.userTranslation}
+${refLine}Student's translation: ${params.userTranslation}
 
 Target word: ${params.targetWord}
 Target word meaning: ${params.targetMeaning}
