@@ -4,7 +4,7 @@
 
 ## Summary
 
-Phases 1–2 are functionally complete. The core quiz loop (sentence generation → translation grading → pinyin check → FSRS scheduling) works end-to-end with real LLM calls. Phases 3–4 are not started.
+Phases 1–3 are complete. The app has a full quiz loop, flashcard management, dashboard with metrics, and Stripe billing with trial enforcement. Phase 4 (production hardening) is not started.
 
 ---
 
@@ -37,14 +37,15 @@ Phases 1–2 are functionally complete. The core quiz loop (sentence generation 
 | AI card creation | ✅ | API response shape fixed, fully wired to CreateCardDialog UI |
 | Metrics history API + charts | ✅ | `/api/metrics/history` with 7d/30d/90d/all, CSS bar chart on dashboard |
 
-## Phase 3 — Polish & Monetization ❌ Not Started
+## Phase 3 — Polish & Monetization ✅ Complete
 
-| Feature | Status |
-|---------|--------|
-| Stripe billing (checkout, portal, webhooks) | ❌ |
-| Trial period + view-only mode | ❌ |
-| Settings page UI | ❌ |
-| AI card suggestions | ❌ |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Stripe billing (checkout, portal, webhooks) | ✅ | 4 billing routes, Stripe SDK singleton, setup script |
+| Trial period + view-only mode | ✅ | Lazy trial expiry, quiz route gate (403), paywall on /quiz |
+| Subscription banner | ✅ | Trial countdown + lapsed banner in app layout |
+| Settings subscription section | ✅ | Status display, manage/subscribe buttons |
+| AI card creation bug fix | ✅ | Fixed field name mismatch (`input` → `word`) |
 
 ## Phase 4 — Production ❌ Not Started
 
