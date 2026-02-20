@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { errorResponse, unauthorizedError } from "@/lib/errors";
 import { checkSubscriptionAccess } from "@/lib/subscription";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * POST /api/quiz/start
@@ -18,6 +19,9 @@ export async function POST() {
     }
 
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("quiz", userId);
+    if (limited) return limited;
 
     // Subscription gate
     const access = await checkSubscriptionAccess(userId);

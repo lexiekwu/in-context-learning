@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npx eslint .
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npx vitest run
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          DIRECT_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          AUTH_SECRET: "dummysecretdummysecretdummysecret"
+          GOOGLE_CLIENT_ID: "dummy"
+          GOOGLE_CLIENT_SECRET: "dummy"
+          NEXTAUTH_URL: "http://localhost:3000"
+          NODE_ENV: "test"

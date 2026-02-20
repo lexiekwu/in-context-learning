@@ -16,6 +16,7 @@ import {
   sentenceGenerationUserMessage,
 } from "@/lib/llm/prompts";
 import { sanitizeForPrompt } from "@/lib/llm/sanitize";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 // ---------------------------------------------------------------------------
 // Request validation
@@ -46,6 +47,9 @@ export async function POST(request: NextRequest) {
       throw unauthorizedError();
     }
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("quiz", userId);
+    if (limited) return limited;
 
     // Parse & validate request body
     const body = await request.json();

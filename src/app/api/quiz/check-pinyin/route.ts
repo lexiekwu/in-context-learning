@@ -9,6 +9,7 @@ import {
   notFoundError,
 } from "@/lib/errors";
 import { verifyPinyin } from "@/lib/pinyin";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const requestSchema = z.object({
   flashcardId: z.string().uuid("flashcardId must be a valid UUID"),
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("quiz", userId);
+    if (limited) return limited;
 
     // Parse & validate request body
     const body = await request.json();

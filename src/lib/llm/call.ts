@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { poe, DEFAULT_MODEL } from "./client";
 import { AppError, ErrorCode } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -147,7 +148,7 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
       } catch {
         // Retryable — LLM may produce valid JSON on next attempt
         if (attempt < maxRetries) {
-          console.warn(`[callLLM] Malformed JSON on attempt ${attempt + 1}, retrying...`, cleaned.slice(0, 200));
+          logger.warn({ attempt: attempt + 1, preview: cleaned.slice(0, 200) }, "Malformed JSON from LLM, retrying");
           continue;
         }
         throw new AppError(
@@ -162,7 +163,7 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
       if (!result.success) {
         // Retryable — LLM may produce valid schema on next attempt
         if (attempt < maxRetries) {
-          console.warn(`[callLLM] Schema validation failed on attempt ${attempt + 1}, retrying...`, result.error.flatten());
+          logger.warn({ attempt: attempt + 1, zodErrors: result.error.flatten() }, "LLM response failed schema validation, retrying");
           continue;
         }
         throw new AppError(

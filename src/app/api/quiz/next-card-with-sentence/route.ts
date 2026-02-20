@@ -17,6 +17,7 @@ import {
   sentenceGenerationUserMessage,
 } from "@/lib/llm/prompts";
 import { sanitizeForPrompt } from "@/lib/llm/sanitize";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const querySchema = z.object({
   sessionId: z.string().uuid("sessionId must be a valid UUID"),
@@ -43,6 +44,9 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("quiz", userId);
+    if (limited) return limited;
 
     const searchParams = Object.fromEntries(request.nextUrl.searchParams);
     const parsed = querySchema.safeParse(searchParams);

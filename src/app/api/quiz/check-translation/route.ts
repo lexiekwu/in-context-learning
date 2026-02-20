@@ -9,6 +9,7 @@ import {
   validationError,
   notFoundError,
 } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 // ---------------------------------------------------------------------------
 // LLM prompt — focused narrowly on target word understanding
@@ -74,6 +75,9 @@ export async function POST(request: NextRequest) {
       throw unauthorizedError();
     }
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("quiz", userId);
+    if (limited) return limited;
 
     // Parse & validate request body
     const body = await request.json();

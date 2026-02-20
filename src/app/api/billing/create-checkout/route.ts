@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { stripe } from "@/lib/stripe";
 import { errorResponse, unauthorizedError } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST() {
   try {
@@ -11,6 +12,10 @@ export async function POST() {
     if (!session?.user?.id) throw unauthorizedError();
 
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("billing", userId);
+    if (limited) return limited;
+
     const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
 
     // Find or create Stripe customer

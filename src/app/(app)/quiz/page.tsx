@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useQuizStateMachine } from "@/hooks/useQuizStateMachine";
+import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 import { QuizCard } from "@/components/quiz/QuizCard";
 import { TranslationInput } from "@/components/quiz/TranslationInput";
 import { TranslationFeedback } from "@/components/quiz/TranslationFeedback";
@@ -15,6 +16,16 @@ import type { WordBreakdownEntry, BillingStatusResponse } from "@/types";
 
 export default function QuizPage() {
   const quiz = useQuizStateMachine();
+
+  const handleSwipeLeft = useCallback(() => {
+    if (quiz.state === "TRANSLATION_CORRECT" || quiz.state === "PINYIN_CORRECT") {
+      quiz.advanceFromCorrect();
+    } else if (quiz.state === "CARD_COMPLETE") {
+      quiz.advanceFromCardComplete();
+    }
+  }, [quiz.state, quiz.advanceFromCorrect, quiz.advanceFromCardComplete]);
+
+  const swipeRef = useSwipeGesture({ onSwipeLeft: handleSwipeLeft });
 
   const [billing, setBilling] = useState<BillingStatusResponse | null>(null);
 
@@ -41,6 +52,37 @@ export default function QuizPage() {
   // SESSION_START — landing screen with "Start Quiz" button
   // -------------------------------------------------------------------
   if (quiz.state === "SESSION_START" && !quiz.sessionId) {
+    if (quiz.recoveredSession) {
+      return (
+        <div className="flex flex-1 flex-col items-center justify-center px-4">
+          <div className="w-full max-w-md text-center">
+            <h1 className="text-3xl font-bold text-zinc-100">
+              Mandarin Quiz
+            </h1>
+            <p className="mt-2 text-zinc-400">
+              You have an unfinished session ({quiz.recoveredSession.stats.cardsReviewed} cards reviewed).
+            </p>
+            <div className="mt-8 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={quiz.resumeSession}
+                className="min-h-11 w-full rounded-lg bg-indigo-600 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-indigo-500 active:bg-indigo-700"
+              >
+                Resume Session
+              </button>
+              <button
+                type="button"
+                onClick={quiz.startSession}
+                className="min-h-11 w-full rounded-lg border border-zinc-700 px-8 py-4 text-lg font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 active:bg-zinc-700"
+              >
+                Start New
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const quizBlocked = billing !== null && !billing.canAccessQuiz;
 
     return (
@@ -159,7 +201,7 @@ export default function QuizPage() {
     showPinyinFeedback || showCardComplete;
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div ref={swipeRef} className="flex flex-1 flex-col">
       <QuizStatsBar stats={quiz.stats} sessionStartTime={quiz.sessionStartTime} />
 
       {/* Error toast */}

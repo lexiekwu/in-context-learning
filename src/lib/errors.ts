@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
 // Error codes — matches the spec in 02-data-model.md
@@ -93,7 +94,7 @@ export function errorResponse(error: unknown): NextResponse<ApiError> {
   }
 
   // Unexpected / unhandled errors
-  console.error("Unhandled error:", error);
+  logger.error({ err: error }, "Unhandled error");
   return NextResponse.json(
     {
       error: {

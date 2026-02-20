@@ -10,6 +10,7 @@ import {
   computeStreak,
   countDueCards,
 } from "@/lib/db/queries";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * GET /api/quiz/today-stats
@@ -25,6 +26,9 @@ export async function GET() {
     }
 
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("quiz", userId);
+    if (limited) return limited;
 
     // Run queries in parallel
     const [todayStats, streak, dueToday, nextDueCard] = await Promise.all([

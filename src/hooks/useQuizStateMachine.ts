@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "@/lib/api";
 import type {
   NextCardResponse,
@@ -67,6 +67,9 @@ export interface QuizStateMachine {
   error: string | null;
   sessionStartTime: number | null;
 
+  recoveredSession: PersistedSession | null;
+  resumeSession: () => void;
+
   // Actions
   startSession: () => Promise<void>;
   loadNextCard: () => Promise<void>;
@@ -90,6 +93,52 @@ const CJK_REGEX =
   /[\u4E00-\u9FFF\u3400-\u4DBF\u{20000}-\u{2A6DF}\u{2A700}-\u{2B73F}\u{2B740}-\u{2B81F}\u{2B820}-\u{2CEAF}\u{2CEB0}-\u{2EBEF}\u{30000}-\u{3134F}]/gu;
 
 // ---------------------------------------------------------------------------
+// Session recovery (localStorage persistence)
+// ---------------------------------------------------------------------------
+const SESSION_STORAGE_KEY = "icl_quiz_session_v1";
+const SESSION_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
+
+interface PersistedSession {
+  sessionId: string;
+  state: QuizState;
+  flashcardId: string;
+  stats: SessionStats;
+  sessionStartTime: number;
+  savedAt: number;
+}
+
+function saveSession(data: PersistedSession): void {
+  try {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // SSR or storage full — ignore
+  }
+}
+
+function loadSession(): PersistedSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as PersistedSession;
+    if (Date.now() - data.savedAt > SESSION_MAX_AGE_MS) {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function clearSession(): void {
+  try {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch {
+    // SSR — ignore
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Hook implementation
 // ---------------------------------------------------------------------------
 export function useQuizStateMachine(): QuizStateMachine {
@@ -104,6 +153,37 @@ export function useQuizStateMachine(): QuizStateMachine {
   });
   const [error, setError] = useState<string | null>(null);
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  const [recoveredSession, setRecoveredSession] = useState<PersistedSession | null>(null);
+
+  // Check for recoverable session on mount
+  useEffect(() => {
+    const saved = loadSession();
+    if (saved) {
+      setRecoveredSession(saved);
+    }
+  }, []);
+
+  // Persist session state on transitions
+  useEffect(() => {
+    if (!sessionId || state === "SESSION_START" || state === "SESSION_SUMMARY") return;
+    const flashcardId = card?.flashcard?.id;
+    if (!flashcardId || !sessionStartTime) return;
+    saveSession({
+      sessionId,
+      state,
+      flashcardId,
+      stats,
+      sessionStartTime,
+      savedAt: Date.now(),
+    });
+  }, [sessionId, state, stats, card?.flashcard?.id, sessionStartTime]);
+
+  // Clear persisted session when summary is reached
+  useEffect(() => {
+    if (state === "SESSION_SUMMARY") {
+      clearSession();
+    }
+  }, [state]);
 
   // Ref to avoid stale closures in auto-advance timers
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -142,6 +222,8 @@ export function useQuizStateMachine(): QuizStateMachine {
   const startSession = useCallback(async () => {
     try {
       setError(null);
+      clearSession();
+      setRecoveredSession(null);
       setState("SESSION_START");
       prefetchRef.current = null;
       const res = await api.startSession();
@@ -575,6 +657,48 @@ export function useQuizStateMachine(): QuizStateMachine {
     setError(null);
   }, []);
 
+  // -------------------------------------------------------------------------
+  // resumeSession — restore a persisted session from localStorage
+  // -------------------------------------------------------------------------
+  const resumeSession = useCallback(async () => {
+    if (!recoveredSession) return;
+    const sid = recoveredSession.sessionId;
+    setSessionId(sid);
+    setStats(recoveredSession.stats);
+    setSessionStartTime(recoveredSession.sessionStartTime);
+    setRecoveredSession(null);
+    clearSession();
+    // Immediately load next card for resumed session
+    try {
+      setState("CARD_START");
+      setError(null);
+      const nextCard = await api.getNextCard(sid);
+      if (!nextCard.flashcard) {
+        setState("SESSION_SUMMARY");
+        return;
+      }
+      const sentenceRes = await api.generateSentence(nextCard.flashcard.id);
+      setCard({
+        flashcard: nextCard.flashcard,
+        sentence: sentenceRes,
+        translationResult: null,
+        pinyinResult: null,
+        userTranslation: "",
+        userPinyin: "",
+        scheduleResult: null,
+        currentCardCorrect: true,
+        responseStartTime: Date.now(),
+      });
+      setState("AWAITING_TRANSLATION");
+      prefetchRef.current = {
+        promise: prefetchNextCard(sid, nextCard.flashcard.id),
+        sessionId: sid,
+      };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resume session");
+    }
+  }, [recoveredSession]);
+
   return {
     state,
     sessionId,
@@ -582,6 +706,8 @@ export function useQuizStateMachine(): QuizStateMachine {
     stats,
     error,
     sessionStartTime,
+    recoveredSession,
+    resumeSession,
     startSession,
     loadNextCard,
     submitTranslation,

@@ -9,6 +9,7 @@ import {
   notFoundError,
 } from "@/lib/errors";
 import { getNextDueCard } from "@/lib/db/queries";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const querySchema = z.object({
   sessionId: z.string().uuid("sessionId must be a valid UUID"),
@@ -32,6 +33,9 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("quiz", userId);
+    if (limited) return limited;
 
     // Parse & validate query params
     const searchParams = Object.fromEntries(request.nextUrl.searchParams);

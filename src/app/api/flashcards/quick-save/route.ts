@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CardState } from "@/generated/prisma/client";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
   errorResponse,
   unauthorizedError,
@@ -61,6 +62,9 @@ export async function POST(req: NextRequest) {
       throw unauthorizedError();
     }
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("flashcard", userId);
+    if (limited) return limited;
 
     const body = await req.json();
     const parsed = quickSaveSchema.safeParse(body);

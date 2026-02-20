@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CardState } from "@/generated/prisma/client";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
   errorResponse,
   unauthorizedError,
@@ -76,6 +77,9 @@ export async function PUT(
     }
     const userId = session.user.id;
 
+    const limited = await checkRateLimit("flashcard", userId);
+    if (limited) return limited;
+
     const { id } = await params;
     const paramResult = paramSchema.safeParse({ id });
     if (!paramResult.success) {
@@ -141,6 +145,9 @@ export async function DELETE(
       throw unauthorizedError();
     }
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("flashcard", userId);
+    if (limited) return limited;
 
     const { id } = await params;
     const paramResult = paramSchema.safeParse({ id });

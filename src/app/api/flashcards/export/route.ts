@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { errorResponse, unauthorizedError } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 // ---------------------------------------------------------------------------
 // GET /api/flashcards/export
@@ -14,6 +15,9 @@ export async function GET(req: NextRequest) {
       throw unauthorizedError();
     }
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("flashcard", userId);
+    if (limited) return limited;
 
     // Fetch ALL user flashcards — not subscription-gated
     const cards = await db.flashcard.findMany({

@@ -1,0 +1,8 @@
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+vitest.config.ts
+scripts/
+STATUS.md
+.github/
