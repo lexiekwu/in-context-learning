@@ -108,12 +108,33 @@ export function useQuizStateMachine(): QuizStateMachine {
   // Ref to avoid stale closures in auto-advance timers
   const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Prefetch ref: stores the promise for the next card + sentence
+  type PrefetchResult =
+    | { type: "card"; flashcard: NonNullable<NextCardResponse["flashcard"]>; sentence: GenerateSentenceResponse }
+    | { type: "empty" };
+
+  const prefetchRef = useRef<{
+    promise: Promise<PrefetchResult | null>;
+    sessionId: string;
+  } | null>(null);
+
   const clearAutoAdvance = useCallback(() => {
     if (autoAdvanceTimer.current) {
       clearTimeout(autoAdvanceTimer.current);
       autoAdvanceTimer.current = null;
     }
   }, []);
+
+  // Helper: prefetch the next card + LLM sentence in the background (single API call)
+  async function prefetchNextCard(sid: string, excludeCardId?: string): Promise<PrefetchResult | null> {
+    try {
+      const res = await api.getNextCardWithSentence(sid, excludeCardId);
+      if (!res.flashcard || !res.sentence) return { type: "empty" };
+      return { type: "card", flashcard: res.flashcard, sentence: res.sentence };
+    } catch {
+      return null; // Prefetch failure is non-fatal; loadNextCard will fetch normally
+    }
+  }
 
   // -------------------------------------------------------------------------
   // startSession
@@ -122,6 +143,7 @@ export function useQuizStateMachine(): QuizStateMachine {
     try {
       setError(null);
       setState("SESSION_START");
+      prefetchRef.current = null;
       const res = await api.startSession();
       setSessionId(res.sessionId);
       setSessionStartTime(Date.now());
@@ -152,6 +174,11 @@ export function useQuizStateMachine(): QuizStateMachine {
         responseStartTime: Date.now(),
       });
       setState("AWAITING_TRANSLATION");
+      // Start prefetching card 2 immediately (exclude current card)
+      prefetchRef.current = {
+        promise: prefetchNextCard(res.sessionId, nextCard.flashcard.id),
+        sessionId: res.sessionId,
+      };
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to start session",
@@ -167,6 +194,61 @@ export function useQuizStateMachine(): QuizStateMachine {
     try {
       clearAutoAdvance();
       setError(null);
+
+      // Check if we have prefetched data for this session
+      const pending = prefetchRef.current?.sessionId === sessionId
+        ? prefetchRef.current
+        : null;
+
+      if (pending) {
+        // Don't show loading skeleton — stay on CARD_COMPLETE while we await
+        // the prefetch. Only show CARD_START if the prefetch isn't ready yet
+        // after a short grace period.
+        const raceResult = await Promise.race([
+          pending.promise.then((r) => ({ tag: "data" as const, result: r })),
+          new Promise<{ tag: "timeout" }>((resolve) =>
+            setTimeout(() => resolve({ tag: "timeout" }), 100),
+          ),
+        ]);
+
+        let prefetched: PrefetchResult | null;
+        if (raceResult.tag === "data") {
+          prefetched = raceResult.result;
+        } else {
+          // Data not ready yet — now show loading skeleton while we wait
+          setState("CARD_START");
+          prefetched = await pending.promise;
+        }
+        prefetchRef.current = null;
+
+        if (prefetched) {
+          if (prefetched.type === "empty") {
+            setState("SESSION_SUMMARY");
+            return;
+          }
+          // Use prefetched data
+          setCard({
+            flashcard: prefetched.flashcard,
+            sentence: prefetched.sentence,
+            translationResult: null,
+            pinyinResult: null,
+            userTranslation: "",
+            userPinyin: "",
+            scheduleResult: null,
+            currentCardCorrect: true,
+            responseStartTime: Date.now(),
+          });
+          setState("AWAITING_TRANSLATION");
+          // Start prefetching the NEXT card immediately (exclude current)
+          prefetchRef.current = {
+            promise: prefetchNextCard(sessionId, prefetched.flashcard.id),
+            sessionId,
+          };
+          return;
+        }
+      }
+
+      // Fallback: no prefetch available, fetch normally
       setState("CARD_START");
       const nextCard = await api.getNextCard(sessionId);
       if (!nextCard.flashcard) {
@@ -186,6 +268,11 @@ export function useQuizStateMachine(): QuizStateMachine {
         responseStartTime: Date.now(),
       });
       setState("AWAITING_TRANSLATION");
+      // Start prefetching the NEXT card immediately (exclude current)
+      prefetchRef.current = {
+        promise: prefetchNextCard(sessionId, nextCard.flashcard.id),
+        sessionId,
+      };
     } catch (err) {
       setError(
         err instanceof Error

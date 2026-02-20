@@ -23,6 +23,7 @@ const serverEnvSchema = z.object({
   // Stripe (optional in dev — required for billing)
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
+  STRIPE_MONTHLY_PRICE_ID: z.string().min(1).optional(),
 
   // Upstash Redis (optional — rate limiting is disabled when absent)
   UPSTASH_REDIS_REST_URL: z.string().optional(),

@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AppNavbar } from "@/components/app-navbar";
+import { SubscriptionBanner } from "@/components/subscription-banner";
 
 /**
  * Layout for authenticated app routes (/dashboard, /quiz, /cards, /settings).
@@ -20,6 +21,7 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen flex-col bg-zinc-950">
       <AppNavbar user={session.user} />
+      <SubscriptionBanner />
       <main className="flex flex-1 flex-col">{children}</main>
     </div>
   );

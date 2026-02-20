@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { MetricsHistoryEntry } from "@/types";
+
+type HistoryPeriod = "7d" | "30d" | "90d";
 
 interface DashboardStats {
   cardsDueToday: number;
@@ -16,6 +19,9 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [historyPeriod, setHistoryPeriod] = useState<HistoryPeriod>("30d");
+  const [historyData, setHistoryData] = useState<MetricsHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     async function fetchStats() {
@@ -32,6 +38,23 @@ export default function DashboardPage() {
     }
     fetchStats();
   }, []);
+
+  useEffect(() => {
+    async function fetchHistory() {
+      setHistoryLoading(true);
+      try {
+        const res = await fetch(`/api/metrics/history?period=${historyPeriod}`);
+        if (!res.ok) throw new Error("Failed");
+        const json = await res.json();
+        setHistoryData(json.data);
+      } catch {
+        /* ignore */
+      } finally {
+        setHistoryLoading(false);
+      }
+    }
+    fetchHistory();
+  }, [historyPeriod]);
 
   if (loading) {
     return (
@@ -170,6 +193,29 @@ export default function DashboardPage() {
           <CardStateBar cardsByState={stats.cardsByState} total={totalCards} />
         </div>
       )}
+
+      {/* Review History */}
+      <div className="mt-10">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-zinc-400">Review History</h2>
+          <select
+            value={historyPeriod}
+            onChange={(e) =>
+              setHistoryPeriod(e.target.value as HistoryPeriod)
+            }
+            className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-300 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            <option value="7d">7 days</option>
+            <option value="30d">30 days</option>
+            <option value="90d">90 days</option>
+          </select>
+        </div>
+        {historyLoading ? (
+          <div className="h-48 animate-pulse rounded-xl border border-zinc-800 bg-zinc-900" />
+        ) : (
+          <ReviewHistoryChart data={historyData} period={historyPeriod} />
+        )}
+      </div>
     </div>
   );
 }
@@ -213,6 +259,129 @@ function CardStateBar({
               <span className={`inline-block h-2.5 w-2.5 rounded-sm ${color}`} />
               {label} ({count})
             </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ReviewHistoryChart({
+  data,
+  period,
+}: {
+  data: MetricsHistoryEntry[];
+  period: HistoryPeriod;
+}) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  if (data.length === 0) {
+    return (
+      <div className="flex h-48 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-sm text-zinc-500">
+        No review data yet
+      </div>
+    );
+  }
+
+  const maxReviewed = Math.max(...data.map((d) => d.cardsReviewed), 1);
+
+  // Show date label every Nth bar
+  const labelInterval = period === "7d" ? 1 : period === "30d" ? 7 : 14;
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+      {/* Legend */}
+      <div className="mb-4 flex gap-4 text-xs text-zinc-400">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+          Correct
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-rose-500" />
+          Incorrect
+        </span>
+      </div>
+
+      {/* Chart area */}
+      <div className="relative flex h-40 items-end gap-px">
+        {data.map((entry, i) => {
+          const totalHeight =
+            maxReviewed > 0 ? (entry.cardsReviewed / maxReviewed) * 100 : 0;
+          const correctHeight =
+            entry.cardsReviewed > 0
+              ? (entry.cardsCorrect / entry.cardsReviewed) * totalHeight
+              : 0;
+          const incorrectHeight = totalHeight - correctHeight;
+
+          return (
+            <div
+              key={entry.date}
+              className="group relative flex flex-1 flex-col items-stretch justify-end"
+              style={{ minWidth: 0 }}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
+              {/* Tooltip */}
+              {hoveredIndex === i && (
+                <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-1.5 text-xs text-zinc-200 shadow-lg">
+                  <div className="font-medium">{entry.date}</div>
+                  <div className="mt-0.5 text-zinc-400">
+                    {entry.cardsReviewed} reviewed &middot;{" "}
+                    {entry.cardsCorrect} correct
+                  </div>
+                  <div className="text-zinc-400">
+                    {entry.accuracy}% accuracy &middot;{" "}
+                    {entry.newCardsStudied} new
+                  </div>
+                  {entry.timeSpentMinutes > 0 && (
+                    <div className="text-zinc-400">
+                      {entry.timeSpentMinutes} min
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Stacked bar */}
+              {entry.cardsReviewed > 0 ? (
+                <div
+                  className="flex w-full flex-col overflow-hidden rounded-t-sm"
+                  style={{ height: `${totalHeight}%` }}
+                >
+                  <div
+                    className="w-full bg-rose-500 transition-colors group-hover:bg-rose-400"
+                    style={{
+                      height:
+                        incorrectHeight > 0
+                          ? `${(incorrectHeight / totalHeight) * 100}%`
+                          : "0%",
+                    }}
+                  />
+                  <div
+                    className="w-full flex-1 bg-emerald-500 transition-colors group-hover:bg-emerald-400"
+                  />
+                </div>
+              ) : (
+                <div className="h-px w-full bg-zinc-800" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Date labels */}
+      <div className="mt-2 flex gap-px">
+        {data.map((entry, i) => {
+          const showLabel = i % labelInterval === 0 || i === data.length - 1;
+          return (
+            <div
+              key={entry.date}
+              className="flex-1 text-center text-[10px] text-zinc-500"
+              style={{ minWidth: 0 }}
+            >
+              {showLabel
+                ? `${parseInt(entry.date.slice(5, 7))}/${parseInt(entry.date.slice(8, 10))}`
+                : ""}
+            </div>
           );
         })}
       </div>

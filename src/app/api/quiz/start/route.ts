@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { errorResponse, unauthorizedError } from "@/lib/errors";
+import { checkSubscriptionAccess } from "@/lib/subscription";
 
 /**
  * POST /api/quiz/start
@@ -17,6 +18,15 @@ export async function POST() {
     }
 
     const userId = session.user.id;
+
+    // Subscription gate
+    const access = await checkSubscriptionAccess(userId);
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: "Subscription required to start a quiz session" },
+        { status: 403 },
+      );
+    }
 
     const studySession = await db.studySession.create({
       data: { userId },

@@ -20,7 +20,7 @@ import { sanitizeForPrompt } from "@/lib/llm/sanitize";
 // ---------------------------------------------------------------------------
 
 const RequestSchema = z.object({
-  input: z.string().min(1).max(500),
+  word: z.string().min(1).max(500),
 });
 
 // ---------------------------------------------------------------------------
@@ -53,10 +53,10 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       throw validationError("Invalid request body", parsed.error.flatten());
     }
-    const { input } = parsed.data;
+    const { word } = parsed.data;
 
     // Auto-detect input language
-    const inputLanguage = detectInputLanguage(input);
+    const inputLanguage = detectInputLanguage(word);
 
     // Get character set from user profile
     const user = await db.user.findUniqueOrThrow({
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     const result = await callLLM({
       systemMessage: aiCardCreationSystemMessage(characterSet),
       userMessage: aiCardCreationUserMessage({
-        input: sanitizeForPrompt(input),
+        input: sanitizeForPrompt(word),
         inputLanguage,
         characterSet,
       }),
@@ -84,9 +84,12 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({
-      word: result.word,
-      pinyin: result.pinyin,
-      englishMeaning: result.meaning,
+      suggestion: {
+        word: result.word,
+        pinyin: result.pinyin,
+        englishMeaning: result.meaning,
+        exampleSentence: result.exampleSentence ?? "",
+      },
       isDuplicate: existing !== null,
     });
   } catch (error) {

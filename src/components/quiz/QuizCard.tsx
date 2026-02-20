@@ -9,6 +9,7 @@ interface QuizCardProps {
   wordBreakdown: WordBreakdownEntry[];
   targetWord?: string;
   suppressTargetTooltip?: boolean;
+  onSaveWord?: (word: WordBreakdownEntry) => Promise<{ alreadyExists: boolean }>;
 }
 
 interface TooltipState {
@@ -22,8 +23,15 @@ export function QuizCard({
   wordBreakdown,
   targetWord,
   suppressTargetTooltip = true,
+  onSaveWord,
 }: QuizCardProps) {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [savedWords, setSavedWords] = useState<Set<string>>(new Set());
+  const [tooltipShowCount, setTooltipShowCount] = useState(0);
+  const [saveStatus, setSaveStatus] = useState<{
+    word: string;
+    status: "saving" | "saved" | "exists";
+  } | null>(null);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -45,9 +53,35 @@ export function QuizCard({
           x: rect.left + rect.width / 2,
           y: rect.top,
         });
+        setTooltipShowCount((prev) => prev + 1);
       }, 300);
     },
     [suppressTargetTooltip, clearHoverTimeout],
+  );
+
+  const handleDoubleClick = useCallback(
+    async (entry: WordBreakdownEntry) => {
+      if (entry.isTarget || !onSaveWord) return;
+      if (savedWords.has(entry.word)) {
+        setSaveStatus({ word: entry.word, status: "exists" });
+        setTimeout(() => setSaveStatus(null), 1500);
+        return;
+      }
+      setSaveStatus({ word: entry.word, status: "saving" });
+      try {
+        const result = await onSaveWord(entry);
+        if (result.alreadyExists) {
+          setSaveStatus({ word: entry.word, status: "exists" });
+        } else {
+          setSaveStatus({ word: entry.word, status: "saved" });
+        }
+        setSavedWords((prev) => new Set(prev).add(entry.word));
+      } catch {
+        setSaveStatus(null);
+      }
+      setTimeout(() => setSaveStatus(null), 1500);
+    },
+    [onSaveWord, savedWords],
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -113,9 +147,13 @@ export function QuizCard({
                 ? "font-bold text-zinc-50 underline decoration-amber-400 decoration-2 underline-offset-4"
                 : "text-zinc-100 hover:text-indigo-300",
               !isTarget && "cursor-pointer",
+              savedWords.has(entry.word) &&
+                !isTarget &&
+                "underline decoration-dotted decoration-emerald-600/50 underline-offset-4",
             )}
             onMouseEnter={(e) => handleMouseEnter({ ...entry, isTarget }, e)}
             onMouseLeave={handleMouseLeave}
+            onDoubleClick={() => handleDoubleClick({ ...entry, isTarget })}
             onTouchStart={(e) => handleTouchStart({ ...entry, isTarget }, e)}
             onTouchEnd={handleTouchEnd}
           >
@@ -161,6 +199,47 @@ export function QuizCard({
           <p className="text-sm text-zinc-400">
             {tooltip.word.meaning}
           </p>
+
+          {/* Save hint (desktop, first 3 tooltips only) */}
+          {onSaveWord &&
+            !savedWords.has(tooltip.word.word) &&
+            tooltipShowCount <= 3 && (
+              <p className="mt-1.5 text-xs text-zinc-500">
+                Double-click to save
+              </p>
+            )}
+
+          {/* Already saved badge */}
+          {savedWords.has(tooltip.word.word) && (
+            <p className="mt-1.5 text-xs text-emerald-400">Already saved</p>
+          )}
+
+          {/* Mobile save button */}
+          {onSaveWord && !savedWords.has(tooltip.word.word) && (
+            <button
+              type="button"
+              onClick={() => handleDoubleClick(tooltip.word)}
+              className="mt-2 w-full rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 sm:hidden"
+            >
+              Save to deck
+            </button>
+          )}
+        </div>
+      )}
+
+      {saveStatus && (
+        <div
+          className={cn(
+            "fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-lg px-4 py-2 text-sm font-medium shadow-lg transition-opacity",
+            saveStatus.status === "saved" &&
+              "bg-emerald-900 text-emerald-200",
+            saveStatus.status === "exists" && "bg-zinc-800 text-zinc-300",
+            saveStatus.status === "saving" && "bg-zinc-800 text-zinc-400",
+          )}
+        >
+          {saveStatus.status === "saved" && "\u2713 Saved to deck!"}
+          {saveStatus.status === "exists" && "Already in your deck"}
+          {saveStatus.status === "saving" && "Saving..."}
         </div>
       )}
     </div>

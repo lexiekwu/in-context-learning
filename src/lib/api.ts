@@ -8,6 +8,7 @@
 import type {
   StartSessionResponse,
   NextCardResponse,
+  NextCardWithSentenceResponse,
   GenerateSentenceResponse,
   CheckTranslationResponse,
   CheckPinyinResponse,
@@ -21,6 +22,8 @@ import type {
   AiCardSuggestionResponse,
   FlashcardExportResponse,
   CardState,
+  BillingStatusResponse,
+  CreateCheckoutResponse,
 } from "@/types";
 
 class ApiError extends Error {
@@ -74,6 +77,18 @@ export function getNextCard(
   return fetchJson<NextCardResponse>(
     `/api/quiz/next-card?sessionId=${encodeURIComponent(sessionId)}`,
   );
+}
+
+/** GET /api/quiz/next-card-with-sentence — Fetch next card + generate sentence in one call */
+export function getNextCardWithSentence(
+  sessionId: string,
+  excludeCardId?: string,
+): Promise<NextCardWithSentenceResponse> {
+  let url = `/api/quiz/next-card-with-sentence?sessionId=${encodeURIComponent(sessionId)}`;
+  if (excludeCardId) {
+    url += `&excludeCardId=${encodeURIComponent(excludeCardId)}`;
+  }
+  return fetchJson<NextCardWithSentenceResponse>(url);
 }
 
 /** POST /api/quiz/generate-sentence — Generate an LLM sentence for a card */
@@ -238,6 +253,29 @@ export function aiCreateCard(
 /** GET /api/flashcards/export — Export all flashcards as JSON */
 export function exportFlashcards(): Promise<FlashcardExportResponse> {
   return fetchJson("/api/flashcards/export");
+}
+
+// ---------------------------------------------------------------------------
+// Billing
+// ---------------------------------------------------------------------------
+
+/** GET /api/billing/status — Get subscription status */
+export function getBillingStatus(): Promise<BillingStatusResponse> {
+  return fetchJson<BillingStatusResponse>("/api/billing/status");
+}
+
+/** POST /api/billing/create-checkout — Create Stripe Checkout session */
+export function createCheckout(): Promise<CreateCheckoutResponse> {
+  return fetchJson<CreateCheckoutResponse>("/api/billing/create-checkout", {
+    method: "POST",
+  });
+}
+
+/** POST /api/billing/create-portal — Create Stripe Customer Portal session */
+export function createPortal(): Promise<{ portalUrl: string }> {
+  return fetchJson<{ portalUrl: string }>("/api/billing/create-portal", {
+    method: "POST",
+  });
 }
 
 export { ApiError };

@@ -96,6 +96,14 @@ export default function SettingsPage() {
         </button>
       </section>
 
+      {/* Subscription */}
+      <section className="mb-8 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-zinc-400">
+          Subscription
+        </h2>
+        <SubscriptionSection />
+      </section>
+
       {/* Character Set */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-zinc-400">
@@ -174,5 +182,99 @@ function CharacterSetOption({
       <span className="text-2xl">{example}</span>
       <span className="text-sm font-medium">{label}</span>
     </button>
+  );
+}
+
+function SubscriptionSection() {
+  const [billing, setBilling] = useState<{
+    status: string;
+    daysRemaining: number | null;
+    canAccessQuiz: boolean;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/billing/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setBilling(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSubscribe() {
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/billing/create-checkout", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to create checkout session");
+      const data = await res.json();
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+      }
+    } catch {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleManageBilling() {
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/billing/create-portal", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to create portal session");
+      const data = await res.json();
+      if (data.portalUrl) {
+        window.location.href = data.portalUrl;
+      }
+    } catch {
+      setActionLoading(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="h-16 animate-pulse rounded-lg bg-zinc-800" />;
+  }
+
+  if (!billing) {
+    return <p className="text-sm text-zinc-500">Unable to load subscription status.</p>;
+  }
+
+  const statusDisplay: Record<string, { label: string; color: string }> = {
+    TRIAL: { label: "Free Trial", color: "text-amber-400" },
+    ACTIVE: { label: "Active", color: "text-emerald-400" },
+    LAPSED: { label: "Expired", color: "text-red-400" },
+    CANCELLED: { label: "Cancelled", color: "text-red-400" },
+  };
+  const display = statusDisplay[billing.status] ?? { label: billing.status, color: "text-zinc-400" };
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-4">
+        <span className="text-sm text-zinc-300">Status:</span>
+        <span className={`text-sm font-semibold ${display.color}`}>{display.label}</span>
+        {billing.status === "TRIAL" && billing.daysRemaining !== null && (
+          <span className="text-xs text-zinc-500">
+            ({billing.daysRemaining} day{billing.daysRemaining === 1 ? "" : "s"} remaining)
+          </span>
+        )}
+      </div>
+
+      {billing.status === "ACTIVE" ? (
+        <button
+          onClick={handleManageBilling}
+          disabled={actionLoading}
+          className="inline-flex min-h-9 items-center rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:cursor-wait disabled:opacity-60"
+        >
+          {actionLoading ? "Loading..." : "Manage Billing"}
+        </button>
+      ) : (
+        <button
+          onClick={handleSubscribe}
+          disabled={actionLoading}
+          className="inline-flex min-h-9 items-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-wait disabled:opacity-60"
+        >
+          {actionLoading ? "Loading..." : "Subscribe"}
+        </button>
+      )}
+    </div>
   );
 }

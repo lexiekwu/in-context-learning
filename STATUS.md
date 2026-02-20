@@ -1,6 +1,6 @@
 # Project Status — In Context Learning
 
-**Last updated:** 2026-02-19
+**Last updated:** 2026-02-20
 
 ## Summary
 
@@ -32,9 +32,10 @@ Phases 1–2 are functionally complete. The core quiz loop (sentence generation 
 | Quiz UI components | ✅ | QuizCard, TranslationInput/Feedback, PinyinInput/Feedback, CardComplete, SessionSummary |
 | Dashboard (basic) | ✅ | Due cards, streak, accuracy, total cards |
 | Metrics overview API | ✅ | Cards by state, streak, accuracy |
-| Hover-to-save tooltips | ❌ | Spec'd but not built |
-| AI card creation | ⚠️ | API route exists, not wired to UI |
-| Metrics history API + charts | ❌ | Only overview, no time-series |
+| Next-card pre-fetching | ✅ | Prefetch during CARD_COMPLETE phase, eliminates 3-5s wait |
+| Hover-to-save tooltips | ✅ | Double-click (desktop), Save button (mobile), "Already saved" badge, hint for first 3 tooltips |
+| AI card creation | ✅ | API response shape fixed, fully wired to CreateCardDialog UI |
+| Metrics history API + charts | ✅ | `/api/metrics/history` with 7d/30d/90d/all, CSS bar chart on dashboard |
 
 ## Phase 3 — Polish & Monetization ❌ Not Started
 
@@ -69,6 +70,5 @@ Phases 1–2 are functionally complete. The core quiz loop (sentence generation 
 
 ## Known Issues
 
-- Quiz can hang/be slow due to LLM latency (~3-5s per call)
 - No deployment config yet (local dev only)
 - Demo account has stale data from testing

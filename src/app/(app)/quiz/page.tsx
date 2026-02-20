@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { useQuizStateMachine } from "@/hooks/useQuizStateMachine";
 import { QuizCard } from "@/components/quiz/QuizCard";
 import { TranslationInput } from "@/components/quiz/TranslationInput";
@@ -9,14 +10,39 @@ import { PinyinFeedback } from "@/components/quiz/PinyinFeedback";
 import { CardComplete } from "@/components/quiz/CardComplete";
 import { SessionSummary } from "@/components/quiz/SessionSummary";
 import { LoadingSkeleton } from "@/components/quiz/LoadingSkeleton";
+import * as api from "@/lib/api";
+import type { WordBreakdownEntry, BillingStatusResponse } from "@/types";
 
 export default function QuizPage() {
   const quiz = useQuizStateMachine();
+
+  const [billing, setBilling] = useState<BillingStatusResponse | null>(null);
+
+  useEffect(() => {
+    fetch("/api/billing/status")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: BillingStatusResponse | null) => setBilling(data))
+      .catch(() => {});
+  }, []);
+
+  const handleSaveWord = useCallback(
+    async (entry: WordBreakdownEntry): Promise<{ alreadyExists: boolean }> => {
+      const result = await api.quickSave({
+        word: entry.word,
+        pinyin: entry.pinyin,
+        englishMeaning: entry.meaning,
+      });
+      return { alreadyExists: !!(result as unknown as { isDuplicate: boolean }).isDuplicate };
+    },
+    [],
+  );
 
   // -------------------------------------------------------------------
   // SESSION_START — landing screen with "Start Quiz" button
   // -------------------------------------------------------------------
   if (quiz.state === "SESSION_START" && !quiz.sessionId) {
+    const quizBlocked = billing !== null && !billing.canAccessQuiz;
+
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
@@ -26,13 +52,28 @@ export default function QuizPage() {
           <p className="mt-2 text-zinc-400">
             Review your flashcards with in-context sentences
           </p>
-          <button
-            type="button"
-            onClick={quiz.startSession}
-            className="mt-8 min-h-11 w-full rounded-lg bg-indigo-600 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-indigo-500 active:bg-indigo-700"
-          >
-            Start Quiz
-          </button>
+
+          {quizBlocked ? (
+            <div className="mt-8 rounded-xl border border-red-800 bg-red-900/20 p-6">
+              <p className="text-base text-red-200">
+                Your trial has expired. Subscribe to continue learning.
+              </p>
+              <a
+                href="/settings"
+                className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-indigo-600 px-8 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-500"
+              >
+                Subscribe
+              </a>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={quiz.startSession}
+              className="mt-8 min-h-11 w-full rounded-lg bg-indigo-600 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-indigo-500 active:bg-indigo-700"
+            >
+              Start Quiz
+            </button>
+          )}
         </div>
       </div>
     );
@@ -144,6 +185,7 @@ export default function QuizPage() {
           wordBreakdown={card.sentence.wordBreakdown}
           targetWord={card.flashcard.word}
           suppressTargetTooltip={!showCardComplete}
+          onSaveWord={handleSaveWord}
         />
 
         {/* Divider */}
@@ -213,7 +255,6 @@ export default function QuizPage() {
 // ---------------------------------------------------------------------------
 // Inline stats bar (replaces the removed QuizHeader — slimmer, no nav)
 // ---------------------------------------------------------------------------
-import { useEffect, useState } from "react";
 import type { SessionStats } from "@/hooks/useQuizStateMachine";
 
 function QuizStatsBar({

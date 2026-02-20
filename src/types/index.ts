@@ -121,6 +121,15 @@ export interface GenerateSentenceResponse {
   wordBreakdown: WordBreakdownEntry[];
 }
 
+/** GET /api/quiz/next-card-with-sentence — combined card + sentence */
+export interface NextCardWithSentenceResponse {
+  flashcard: NextCardResponse["flashcard"];
+  sentence: GenerateSentenceResponse | null;
+  cardsRemaining: number;
+  newCardsRemaining?: number;
+  nextDueAt?: string;
+}
+
 /** POST /api/quiz/check-translation response */
 export interface CheckTranslationResponse {
   correct: boolean;
@@ -229,7 +238,7 @@ export interface AiCardSuggestionResponse {
     englishMeaning: string;
     exampleSentence: string;
   };
-  confirmed: false;
+  isDuplicate: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -29,7 +29,8 @@ function startOfTodayUTC(): Date {
  */
 export async function getNextDueCard(
   userId: string,
-  sessionId: string
+  sessionId: string,
+  extraExcludeIds: string[] = [],
 ): Promise<{
   card: Flashcard | null;
   cardsRemaining: number;
@@ -39,8 +40,11 @@ export async function getNextDueCard(
   const now = new Date();
   const todayStart = startOfTodayUTC();
 
-  // Get cards already reviewed in this session
-  const sessionCardIds = await getSessionCardIds(sessionId);
+  // Get cards already reviewed in this session (+ any extra exclusions)
+  const reviewedIds = await getSessionCardIds(sessionId);
+  const sessionCardIds = extraExcludeIds.length > 0
+    ? [...new Set([...reviewedIds, ...extraExcludeIds])]
+    : reviewedIds;
 
   // Get today's stats for limit checks
   const todayStats = await getTodayReviewStats(userId);

@@ -140,6 +140,10 @@ beforeEach(() => {
 describe("POST /api/quiz/start", () => {
   it("creates a session and returns sessionId", async () => {
     authenticatedSession();
+    mockDbUser.findUniqueOrThrow.mockResolvedValue({
+      subscriptionStatus: "TRIAL",
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
     const now = new Date("2026-02-19T10:00:00Z");
     mockDbStudySession.create.mockResolvedValue({
       id: TEST_SESSION_ID,
