@@ -1,10 +1,10 @@
-# Project Status — In Context Learning
+# Project Status — In Context Flashcards
 
-**Last updated:** 2026-02-20
+**Last updated:** 2026-02-22
 
 ## Summary
 
-Phases 1–3 are complete. The app has a full quiz loop, flashcard management, dashboard with metrics, and Stripe billing with trial enforcement. Phase 4 (production hardening) is not started.
+Phases 1–5 are complete. The app has a full quiz loop with instant transitions, flashcard management with AI-fill, a user dashboard with metrics, an internal admin dashboard (usage, revenue, LLM spend), Stripe billing with trial enforcement, and production infrastructure (rate limiting, logging, CI/CD, security headers). Vercel deployment config is ready but not yet connected.
 
 ---
 
@@ -24,13 +24,13 @@ Phases 1–3 are complete. The app has a full quiz loop, flashcard management, d
 | Feature | Status | Notes |
 |---------|--------|-------|
 | FSRS-5 integration (ts-fsrs) | ✅ | Card scheduling, state transitions |
-| Quiz state machine (16 states) | ✅ | `useQuizStateMachine` hook |
-| Quiz API (7 endpoints) | ✅ | start, next-card, generate-sentence, check-translation, check-pinyin, submit-result, today-stats |
+| Quiz state machine (13 states) | ✅ | `useQuizStateMachine` hook, auto-starts on page load |
+| Quiz API (8 endpoints) | ✅ | start, next-card, next-card-with-sentence, generate-sentence, check-translation, check-pinyin, submit-result, today-stats |
 | LLM sentence generation | ✅ | Poe API → Gemini-2.5-Flash, Zod validation, retry logic |
 | LLM translation grading | ✅ | Lenient grading with explanation + suggested translation |
 | Pinyin verification | ✅ | Server-side normalized matching, tone-mark rejection |
 | Quiz UI components | ✅ | QuizCard, TranslationInput/Feedback, PinyinInput/Feedback, CardComplete, SessionSummary |
-| Dashboard (basic) | ✅ | Due cards, streak, accuracy, total cards |
+| Dashboard | ✅ | Due cards, streak, accuracy, total cards, daily chart |
 | Metrics overview API | ✅ | Cards by state, streak, accuracy |
 | Next-card pre-fetching | ✅ | Prefetch during CARD_COMPLETE phase, eliminates 3-5s wait |
 | Hover-to-save tooltips | ✅ | Double-click (desktop), Save button (mobile), "Already saved" badge, hint for first 3 tooltips |
@@ -47,15 +47,52 @@ Phases 1–3 are complete. The app has a full quiz loop, flashcard management, d
 | Settings subscription section | ✅ | Status display, manage/subscribe buttons |
 | AI card creation bug fix | ✅ | Fixed field name mismatch (`input` → `word`) |
 
-## Phase 4 — Production ❌ Not Started
+## Phase 4 — Production Hardening ✅ Complete
 
-| Feature | Status |
-|---------|--------|
-| Rate limiting (Upstash installed, not wired) | ❌ |
-| Mobile gestures (swipe, long-press) | ❌ |
-| Session recovery (localStorage) | ❌ |
-| Structured logging / Sentry | ❌ |
-| CI/CD pipeline | ❌ |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Rate limiting (Upstash Redis) | ✅ | 4 tiers (quiz/flashcard/aiCreate/billing), 18 route handlers, no-op when Redis absent |
+| Structured logging (Pino) | ✅ | JSON in prod, pino-pretty in dev, replaced console.warn/error |
+| Session recovery (localStorage) | 🔄 Removed | Replaced by auto-start quiz flow with daily card counting |
+| Mobile swipe gestures | ✅ | `useSwipeGesture` hook, swipe-left advances quiz |
+| CI/CD (GitHub Actions) | ✅ | Lint → Prisma generate → typecheck → Vitest, ~1m13s |
+| Security headers | ✅ | HSTS, CSP, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy |
+| Vercel config | ✅ | `vercel.json`, `.vercelignore`, Google avatar remote patterns |
+| Security review | ✅ | All HIGH/MEDIUM issues fixed |
+
+## Phase 5 — UX Polish & Admin ✅ Complete
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Rename to "In Context Flashcards" | ✅ | Layout, landing, navbar, signin, Stripe product |
+| Internal admin dashboard | ✅ | `/admin` gated to admin email, users/funnel/activity/revenue/LLM metrics |
+| LLM usage tracking | ✅ | `LlmCall` model, fire-and-forget logging from all 4 call sites |
+| Admin revenue section | ✅ | Stripe invoice aggregation (7d/30d/total), recent charges table |
+| Admin LLM spend section | ✅ | By-purpose breakdown, daily token chart, totals |
+| Card creation: AI-fill sparkle buttons | ✅ | Single form with inline sparkle icons, replaces tab UI |
+| Dashboard: remove CTA buttons | ✅ | Removed redundant "Start Quiz" / "Manage Cards" row |
+| Quiz: auto-start, no session management | ✅ | Goes straight to first card on page load, daily card counting |
+| Quiz: instant transitions | ✅ | Removed all artificial delays (translation→pinyin, card result) |
+| Quiz: consistent feedback styling | ✅ | Green ✓ / Red ✗ across translation, pinyin, and card result |
+| Quiz: daily stats bar | ✅ | Shows "Today: N" with accuracy, replaces session timer |
+| Custom favicon | ✅ | SVG "字" on indigo background |
+
+## Remaining: Vercel Deployment (Not Yet Connected)
+
+To finish deployment:
+
+1. **Import repo at [vercel.com/new](https://vercel.com/new)** — select `lexiekwu/in-context-learning`
+2. **Set environment variables** in Vercel dashboard (all from `.env`):
+   - `DATABASE_URL`, `DIRECT_URL` (Supabase connection strings)
+   - `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+   - `NEXTAUTH_URL` → set to the Vercel production URL (e.g. `https://ichinglingo.vercel.app`)
+   - `NEXT_PUBLIC_APP_URL` → same as NEXTAUTH_URL
+   - `POE_API_KEY` (for LLM features)
+   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_MONTHLY_PRICE_ID` (for billing)
+   - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (for rate limiting — optional, degrades gracefully)
+3. **Update Stripe webhook endpoint** to point to `https://<vercel-url>/api/billing/webhook`
+4. **Update Google OAuth redirect URI** in Google Cloud Console to include `https://<vercel-url>/api/auth/callback/google`
+5. **Note:** Free Hobby plan is sufficient. Serverless function timeout is 10s on free tier — LLM calls may occasionally approach this limit.
 
 ---
 
@@ -68,8 +105,15 @@ Phases 1–3 are complete. The app has a full quiz loop, flashcard management, d
 - **LLM:** Poe API (OpenAI-compatible) → Gemini-2.5-Flash
 - **Styling:** Tailwind CSS (dark-only, indigo accent)
 - **Testing:** Vitest 3
+- **Rate Limiting:** Upstash Redis (optional)
+- **Logging:** Pino
+- **CI/CD:** GitHub Actions
+- **Billing:** Stripe (checkout, portal, webhooks)
+- **Deployment:** Vercel (config ready, not yet connected)
 
 ## Known Issues
 
-- No deployment config yet (local dev only)
+- Vercel not yet connected (config ready, needs import + env vars)
 - Demo account has stale data from testing
+- Free tier 10s function timeout may be tight for LLM calls
+- LLM spend in admin dashboard requires dev server restart after migration (Prisma client caching)
