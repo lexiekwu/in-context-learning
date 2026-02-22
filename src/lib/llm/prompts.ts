@@ -111,7 +111,7 @@ Rules you MUST follow:
 2. Write pinyin in numbered tone format: xue2xi2, NOT xuéxí. The neutral tone is tone 0.
 3. If the user provides English, find the single most common/useful Chinese equivalent. Prefer the word a native Mandarin speaker would most naturally use.
 4. If the user provides Chinese in a different character set than requested, convert to the requested set.
-5. The "meaning" field should list the primary meanings separated by semicolons, starting with the most common usage. Keep it concise (max 3-4 meanings).
+5. The "meaning" field should contain ONLY the single most common English meaning — a short phrase a learner would type (e.g. "to study", "happy", "computer"). Never list multiple definitions separated by semicolons, slashes, or commas. If context is ambiguous, pick the most frequent meaning.
 6. The example sentence should be simple and natural — something a textbook or native speaker would use.
 7. The example sentence MUST use the target word.
 8. If the user provides a context sentence, use it to disambiguate which meaning/word is intended.
@@ -139,7 +139,7 @@ Respond with JSON in this exact format:
 {
   "word": "<the word in ${params.characterSet} Chinese>",
   "pinyin": "<numbered pinyin>",
-  "meaning": "<English meanings separated by semicolons>",
+  "meaning": "<single primary English meaning>",
   "exampleSentence": "<example sentence in ${params.characterSet} Chinese using the word>",
   "exampleTranslation": "<English translation of example sentence>"
 }`;

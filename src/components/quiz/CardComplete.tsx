@@ -67,35 +67,45 @@ export function CardComplete({
         </p>
       </div>
 
-      {/* Schedule info */}
-      {scheduleResult && (
-        <div className="flex flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-800 p-4 sm:flex-row sm:items-center sm:gap-6">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-zinc-400">
-              Next Review
-            </p>
+      {/* Schedule info (skeleton while loading, real data when available) */}
+      <div className="flex flex-col gap-3 rounded-lg border border-zinc-700 bg-zinc-800 p-4 sm:flex-row sm:items-center sm:gap-6">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-zinc-400">
+            Next Review
+          </p>
+          {scheduleResult ? (
             <p className="text-lg font-semibold text-zinc-100">
               {formatNextDue(scheduleResult.nextDue)}
             </p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-zinc-400">
-              State
-            </p>
+          ) : (
+            <div className="mt-1 h-6 w-20 animate-pulse rounded bg-zinc-700" />
+          )}
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-zinc-400">
+            State
+          </p>
+          {scheduleResult ? (
             <p className="text-lg font-semibold text-zinc-100">
               {scheduleResult.state}
             </p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-zinc-400">
-              Reps
-            </p>
+          ) : (
+            <div className="mt-1 h-6 w-16 animate-pulse rounded bg-zinc-700" />
+          )}
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-wide text-zinc-400">
+            Reps
+          </p>
+          {scheduleResult ? (
             <p className="text-lg font-semibold text-zinc-100">
               {scheduleResult.reps}
             </p>
-          </div>
+          ) : (
+            <div className="mt-1 h-6 w-10 animate-pulse rounded bg-zinc-700" />
+          )}
         </div>
-      )}
+      </div>
 
       {/* Next card button */}
       <button

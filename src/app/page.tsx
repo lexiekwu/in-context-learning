@@ -34,8 +34,8 @@ export default function LandingPage() {
             In Context Flashcards
           </h1>
           <p className="text-lg text-zinc-400">
-            Master Mandarin through AI-powered contextual sentences and spaced
-            repetition.
+            Learn Mandarin vocabulary with smart review timing and real-world
+            example sentences.
           </p>
         </div>
 
@@ -44,7 +44,7 @@ export default function LandingPage() {
           <FeatureCard
             icon="🔁"
             title="Spaced Repetition"
-            description="FSRS algorithm schedules reviews at the optimal time for long-term retention."
+            description="Reviews are automatically scheduled at the perfect time so you remember words long-term."
           />
           <FeatureCard
             icon="✨"
@@ -54,7 +54,7 @@ export default function LandingPage() {
           <FeatureCard
             icon="🗣️"
             title="Pinyin Practice"
-            description="Reinforce pronunciation with numbered-tone pinyin recall on every card."
+            description="Reinforce pronunciation with pinyin recall on every card."
           />
         </div>
 
