@@ -162,13 +162,12 @@ export interface SubmitResultResponse {
 
 /** GET /api/quiz/today-stats response */
 export interface TodayStatsResponse {
-  todayStats: {
-    cardsReviewed: number;
-    cardsCorrect: number;
-    accuracy: number;
-    newCardsStudied: number;
-    currentStreak: number;
-  };
+  dueToday: number;
+  reviewedToday: number;
+  newToday: number;
+  correctToday: number;
+  streak: number;
+  accuracy: number;
   nextDueAt: string | null;
 }
 

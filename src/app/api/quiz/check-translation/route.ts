@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
       }),
       schema: ResponseSchema,
       maxRetries: 1,
+      purpose: "check-translation",
       temperature: 0.1,
       maxTokens: 1000,
     });

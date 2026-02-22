@@ -5,8 +5,6 @@ import { cn } from "@/lib/cn";
 import { createFlashcard, aiCreateCard, ApiError } from "@/lib/api";
 import type { FlashcardResponse } from "@/types";
 
-type Tab = "manual" | "ai";
-
 interface CreateCardDialogProps {
   open: boolean;
   onClose: () => void;
@@ -18,42 +16,21 @@ export default function CreateCardDialog({
   onClose,
   onCreated,
 }: CreateCardDialogProps) {
-  const [tab, setTab] = useState<Tab>("manual");
-
-  // Manual form
   const [word, setWord] = useState("");
   const [pinyin, setPinyin] = useState("");
   const [meaning, setMeaning] = useState("");
 
-  // AI form
-  const [aiInput, setAiInput] = useState("");
-  const [aiSuggestion, setAiSuggestion] = useState<{
-    word: string;
-    pinyin: string;
-    englishMeaning: string;
-    exampleSentence: string;
-  } | null>(null);
-  const [aiWord, setAiWord] = useState("");
-  const [aiPinyin, setAiPinyin] = useState("");
-  const [aiMeaning, setAiMeaning] = useState("");
-  const [aiExample, setAiExample] = useState("");
-
-  // Shared
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function resetForm() {
     setWord("");
     setPinyin("");
     setMeaning("");
-    setAiInput("");
-    setAiSuggestion(null);
-    setAiWord("");
-    setAiPinyin("");
-    setAiMeaning("");
-    setAiExample("");
     setError(null);
     setLoading(false);
+    setAiLoading(false);
   }
 
   function handleClose() {
@@ -61,8 +38,7 @@ export default function CreateCardDialog({
     onClose();
   }
 
-  // ---- Manual creation ----
-  async function handleManualCreate() {
+  async function handleCreate() {
     if (!word.trim() || !pinyin.trim() || !meaning.trim()) {
       setError("All fields are required.");
       return;
@@ -90,58 +66,22 @@ export default function CreateCardDialog({
     }
   }
 
-  // ---- AI generation ----
-  async function handleAiGenerate() {
-    if (!aiInput.trim()) {
-      setError("Enter a word or phrase to generate a card.");
-      return;
-    }
-    setLoading(true);
+  async function handleAiFill(input: string) {
+    if (!input.trim()) return;
+    setAiLoading(true);
     setError(null);
-    setAiSuggestion(null);
     try {
-      const result = await aiCreateCard({ word: aiInput.trim() });
+      const result = await aiCreateCard({ word: input.trim() });
       const s = result.suggestion;
-      setAiSuggestion(s);
-      setAiWord(s.word);
-      setAiPinyin(s.pinyin);
-      setAiMeaning(s.englishMeaning);
-      setAiExample(s.exampleSentence);
+      setWord(s.word);
+      setPinyin(s.pinyin);
+      setMeaning(s.englishMeaning);
     } catch (e) {
       setError(
-        e instanceof ApiError ? e.message : "AI generation failed. Try again.",
+        e instanceof ApiError ? e.message : "AI fill failed. Try again.",
       );
     } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleAiSave() {
-    if (!aiWord.trim() || !aiPinyin.trim() || !aiMeaning.trim()) {
-      setError("Word, pinyin, and meaning are required.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await createFlashcard({
-        word: aiWord.trim(),
-        pinyin: aiPinyin.trim(),
-        englishMeaning: aiMeaning.trim(),
-        exampleSentence: aiExample.trim() || undefined,
-      });
-      onCreated(result.flashcard);
-      handleClose();
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        setError("A card with this word already exists.");
-      } else {
-        setError(
-          e instanceof ApiError ? e.message : "Failed to save card.",
-        );
-      }
-    } finally {
-      setLoading(false);
+      setAiLoading(false);
     }
   }
 
@@ -184,40 +124,6 @@ export default function CreateCardDialog({
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-zinc-200 dark:border-zinc-700">
-          <button
-            type="button"
-            onClick={() => {
-              setTab("manual");
-              setError(null);
-            }}
-            className={cn(
-              "flex-1 py-2.5 text-center text-sm font-medium transition-colors",
-              tab === "manual"
-                ? "border-b-2 border-indigo-400 text-indigo-400"
-                : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300",
-            )}
-          >
-            Manual
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setTab("ai");
-              setError(null);
-            }}
-            className={cn(
-              "flex-1 py-2.5 text-center text-sm font-medium transition-colors",
-              tab === "ai"
-                ? "border-b-2 border-indigo-400 text-indigo-400"
-                : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300",
-            )}
-          >
-            AI Generate
-          </button>
-        </div>
-
         {/* Body */}
         <div className="px-5 py-4">
           {error && (
@@ -226,186 +132,125 @@ export default function CreateCardDialog({
             </p>
           )}
 
-          {tab === "manual" ? (
-            /* ---------- Manual Tab ---------- */
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  Word <span className="text-red-500">*</span>
-                </label>
+          <div className="space-y-3">
+            {/* Word */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                Word <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-1.5">
                 <input
                   type="text"
                   value={word}
                   onChange={(e) => setWord(e.target.value)}
                   placeholder="e.g. 學習"
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <AiFillButton
+                  onClick={() => handleAiFill(word)}
+                  disabled={!word.trim() || aiLoading}
+                  loading={aiLoading}
+                  title="AI-fill pinyin and meaning from this word"
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  Pinyin <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={pinyin}
-                  onChange={(e) => setPinyin(e.target.value)}
-                  placeholder="e.g. xue2xi2"
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  English Meaning <span className="text-red-500">*</span>
-                </label>
+            </div>
+
+            {/* Pinyin */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                Pinyin <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={pinyin}
+                onChange={(e) => setPinyin(e.target.value)}
+                placeholder="e.g. xue2xi2"
+                className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            {/* English Meaning */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                English Meaning <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-1.5">
                 <input
                   type="text"
                   value={meaning}
                   onChange={(e) => setMeaning(e.target.value)}
                   placeholder="e.g. to study / to learn"
-                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <AiFillButton
+                  onClick={() => handleAiFill(meaning)}
+                  disabled={!meaning.trim() || aiLoading}
+                  loading={aiLoading}
+                  title="AI-fill word and pinyin from this English meaning"
                 />
               </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={handleManualCreate}
-                disabled={loading}
-                className="w-full rounded-md bg-indigo-600 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
-              >
-                {loading ? "Creating..." : "Create Card"}
-              </button>
-            </div>
-          ) : (
-            /* ---------- AI Tab ---------- */
-            <div className="space-y-3">
-              {!aiSuggestion ? (
-                <>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Enter a Chinese word or phrase
-                    </label>
-                    <input
-                      type="text"
-                      value={aiInput}
-                      onChange={(e) => setAiInput(e.target.value)}
-                      placeholder="e.g. 圖書館"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !loading) handleAiGenerate();
-                      }}
-                      className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAiGenerate}
-                    disabled={loading}
-                    className="w-full rounded-md bg-indigo-600 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <span className="inline-flex items-center gap-2">
-                        <svg
-                          className="h-4 w-4 animate-spin"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                          />
-                        </svg>
-                        Generating...
-                      </span>
-                    ) : (
-                      "Generate with AI"
-                    )}
-                  </button>
-                </>
-              ) : (
-                /* AI result preview (editable) */
-                <>
-                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    AI-generated card (edit before saving)
-                  </p>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Word
-                    </label>
-                    <input
-                      type="text"
-                      value={aiWord}
-                      onChange={(e) => setAiWord(e.target.value)}
-                      className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Pinyin
-                    </label>
-                    <input
-                      type="text"
-                      value={aiPinyin}
-                      onChange={(e) => setAiPinyin(e.target.value)}
-                      className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      English Meaning
-                    </label>
-                    <input
-                      type="text"
-                      value={aiMeaning}
-                      onChange={(e) => setAiMeaning(e.target.value)}
-                      className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                      Example Sentence
-                    </label>
-                    <input
-                      type="text"
-                      value={aiExample}
-                      onChange={(e) => setAiExample(e.target.value)}
-                      className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleAiSave}
-                      disabled={loading}
-                      className="flex-1 rounded-md bg-indigo-600 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
-                    >
-                      {loading ? "Saving..." : "Save Card"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAiSuggestion(null);
-                        setError(null);
-                      }}
-                      disabled={loading}
-                      className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    >
-                      Back
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={loading || aiLoading}
+              className="w-full rounded-md bg-indigo-600 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
+            >
+              {loading ? "Creating..." : "Create Card"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function AiFillButton({
+  onClick,
+  disabled,
+  loading,
+  title,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  loading: boolean;
+  title: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={cn(
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-zinc-700 transition-colors",
+        "hover:bg-zinc-700 hover:text-indigo-400",
+        "disabled:cursor-not-allowed disabled:opacity-40",
+        loading ? "text-indigo-400" : "text-zinc-400",
+      )}
+    >
+      {loading ? (
+        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          />
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+          />
+        </svg>
+      ) : (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+        </svg>
+      )}
+    </button>
   );
 }

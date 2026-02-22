@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
       schema: AICardCreationResponseSchema,
       temperature: 0.5,
       maxTokens: 300,
+      purpose: "ai-create",
     });
 
     // Check for duplicate word for this user

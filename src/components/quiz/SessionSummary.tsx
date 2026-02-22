@@ -1,30 +1,16 @@
 "use client";
 
-import type { SessionStats } from "@/hooks/useQuizStateMachine";
+import type { DailyStats } from "@/hooks/useQuizStateMachine";
 import { cn } from "@/lib/cn";
 
 interface SessionSummaryProps {
-  stats: SessionStats;
-  sessionStartTime: number | null;
-  onReviewAgain: () => void;
+  dailyStats: DailyStats;
 }
 
-function formatDuration(startMs: number | null): string {
-  if (!startMs) return "--";
-  const diffMs = Date.now() - startMs;
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return "< 1 min";
-  return `${minutes} min`;
-}
-
-export function SessionSummary({
-  stats,
-  sessionStartTime,
-  onReviewAgain,
-}: SessionSummaryProps) {
+export function SessionSummary({ dailyStats }: SessionSummaryProps) {
   const accuracy =
-    stats.cardsReviewed > 0
-      ? Math.round((stats.cardsCorrect / stats.cardsReviewed) * 100)
+    dailyStats.reviewed > 0
+      ? Math.round((dailyStats.correct / dailyStats.reviewed) * 100)
       : 0;
 
   return (
@@ -39,78 +25,69 @@ export function SessionSummary({
         </p>
 
         {/* Stats grid */}
-        <div className="mt-6 grid grid-cols-2 gap-4">
-          <div className="rounded-lg bg-zinc-800 p-4 text-center">
-            <p className="text-3xl font-bold text-zinc-100">
-              {stats.cardsReviewed}
-            </p>
-            <p className="text-sm text-zinc-400">
-              Reviewed
-            </p>
-          </div>
-          <div className="rounded-lg bg-zinc-800 p-4 text-center">
-            <p className="text-3xl font-bold text-zinc-100">
-              {stats.cardsCorrect}
-            </p>
-            <p className="text-sm text-zinc-400">
-              Correct
-            </p>
-          </div>
-        </div>
+        {dailyStats.reviewed > 0 && (
+          <>
+            <div className="mt-6 grid grid-cols-2 gap-4">
+              <div className="rounded-lg bg-zinc-800 p-4 text-center">
+                <p className="text-3xl font-bold text-zinc-100">
+                  {dailyStats.reviewed}
+                </p>
+                <p className="text-sm text-zinc-400">
+                  Reviewed today
+                </p>
+              </div>
+              <div className="rounded-lg bg-zinc-800 p-4 text-center">
+                <p className="text-3xl font-bold text-zinc-100">
+                  {dailyStats.correct}
+                </p>
+                <p className="text-sm text-zinc-400">
+                  Correct
+                </p>
+              </div>
+            </div>
 
-        {/* Accuracy bar */}
+            {/* Accuracy bar */}
+            <div className="mt-6">
+              <div className="mb-1 flex justify-between text-sm">
+                <span className="text-zinc-400">Accuracy</span>
+                <span className="font-medium text-zinc-100">
+                  {accuracy}%
+                </span>
+              </div>
+              <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-700">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    accuracy >= 80
+                      ? "bg-green-500"
+                      : accuracy >= 60
+                        ? "bg-amber-500"
+                        : "bg-red-500",
+                  )}
+                  style={{ width: `${accuracy}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Streak */}
+            {dailyStats.longestStreak > 1 && (
+              <div className="mt-4 flex justify-between text-sm text-zinc-400">
+                <span>Longest streak</span>
+                <span className="font-medium text-zinc-100">
+                  {dailyStats.longestStreak}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Action */}
         <div className="mt-6">
-          <div className="mb-1 flex justify-between text-sm">
-            <span className="text-zinc-400">Accuracy</span>
-            <span className="font-medium text-zinc-100">
-              {accuracy}%
-            </span>
-          </div>
-          <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-700">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                accuracy >= 80
-                  ? "bg-green-500"
-                  : accuracy >= 60
-                    ? "bg-amber-500"
-                    : "bg-red-500",
-              )}
-              style={{ width: `${accuracy}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Additional stats */}
-        <div className="mt-4 space-y-2 text-sm text-zinc-400">
-          <div className="flex justify-between">
-            <span>Duration</span>
-            <span className="font-medium text-zinc-100">
-              {formatDuration(sessionStartTime)}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span>Longest streak</span>
-            <span className="font-medium text-zinc-100">
-              {stats.longestStreak}
-            </span>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={onReviewAgain}
-            className="min-h-11 flex-1 rounded-lg bg-indigo-600 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-indigo-500 active:bg-indigo-700"
-          >
-            Review Again
-          </button>
           <a
             href="/dashboard"
-            className="min-h-11 flex flex-1 items-center justify-center rounded-lg border border-zinc-600 px-6 py-3 text-base font-medium text-zinc-300 transition-colors hover:bg-zinc-800"
+            className="flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-indigo-500 active:bg-indigo-700"
           >
-            Dashboard
+            Back to Dashboard
           </a>
         </div>
       </div>

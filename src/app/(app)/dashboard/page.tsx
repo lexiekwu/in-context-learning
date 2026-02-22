@@ -168,22 +168,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* CTA Buttons */}
-      <div className="flex flex-wrap gap-3">
-        <Link
-          href="/quiz"
-          className="inline-flex min-h-11 items-center justify-center rounded-lg bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
-        >
-          Start Quiz
-        </Link>
-        <Link
-          href="/cards"
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 px-6 py-3 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
-        >
-          Manage Cards
-        </Link>
-      </div>
-
       {/* Cards by State Bar */}
       {stats?.cardsByState && totalCards > 0 && (
         <div className="mt-10">

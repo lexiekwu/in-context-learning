@@ -31,7 +31,7 @@ export default function LandingPage() {
             字
           </span>
           <h1 className="text-4xl font-bold tracking-tight text-zinc-50">
-            In Context Learning
+            In Context Flashcards
           </h1>
           <p className="text-lg text-zinc-400">
             Master Mandarin through AI-powered contextual sentences and spaced

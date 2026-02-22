@@ -12,6 +12,8 @@ interface NavbarProps {
   };
 }
 
+const ADMIN_EMAILS = ["lexiekwu@gmail.com"];
+
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/quiz", label: "Quiz" },
@@ -33,7 +35,7 @@ export function AppNavbar({ user }: NavbarProps) {
           <span className="text-xl" aria-hidden="true">
             字
           </span>
-          <span className="hidden sm:inline">In Context Learning</span>
+          <span className="hidden sm:inline">In Context Flashcards</span>
         </Link>
 
         {/* Nav links */}
@@ -54,6 +56,18 @@ export function AppNavbar({ user }: NavbarProps) {
               </Link>
             );
           })}
+          {user.email && ADMIN_EMAILS.includes(user.email) && (
+            <Link
+              href="/admin"
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                pathname.startsWith("/admin")
+                  ? "bg-zinc-800 text-zinc-50"
+                  : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
+              }`}
+            >
+              Admin
+            </Link>
+          )}
         </div>
 
         {/* User menu */}

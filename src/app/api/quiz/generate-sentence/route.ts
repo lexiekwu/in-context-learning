@@ -186,6 +186,7 @@ export async function POST(request: NextRequest) {
       schema: SentenceGenerationResponseSchema,
       temperature: 0.7,
       maxTokens: 2000,
+      purpose: "generate-sentence",
     });
 
     return NextResponse.json(result);

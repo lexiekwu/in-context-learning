@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useQuizStateMachine } from "@/hooks/useQuizStateMachine";
 import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 import { QuizCard } from "@/components/quiz/QuizCard";
@@ -12,14 +12,15 @@ import { CardComplete } from "@/components/quiz/CardComplete";
 import { SessionSummary } from "@/components/quiz/SessionSummary";
 import { LoadingSkeleton } from "@/components/quiz/LoadingSkeleton";
 import * as api from "@/lib/api";
-import type { WordBreakdownEntry, BillingStatusResponse } from "@/types";
+import type { WordBreakdownEntry } from "@/types";
+import type { DailyStats } from "@/hooks/useQuizStateMachine";
 
 export default function QuizPage() {
   const quiz = useQuizStateMachine();
 
   const { state: quizState, advanceFromCorrect, advanceFromCardComplete } = quiz;
   const handleSwipeLeft = useCallback(() => {
-    if (quizState === "TRANSLATION_CORRECT" || quizState === "PINYIN_CORRECT") {
+    if (quizState === "TRANSLATION_CORRECT") {
       advanceFromCorrect();
     } else if (quizState === "CARD_COMPLETE") {
       advanceFromCardComplete();
@@ -27,15 +28,6 @@ export default function QuizPage() {
   }, [quizState, advanceFromCorrect, advanceFromCardComplete]);
 
   const swipeRef = useSwipeGesture({ onSwipeLeft: handleSwipeLeft });
-
-  const [billing, setBilling] = useState<BillingStatusResponse | null>(null);
-
-  useEffect(() => {
-    fetch("/api/billing/status")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: BillingStatusResponse | null) => setBilling(data))
-      .catch(() => {});
-  }, []);
 
   const handleSaveWord = useCallback(
     async (entry: WordBreakdownEntry): Promise<{ alreadyExists: boolean }> => {
@@ -50,107 +42,52 @@ export default function QuizPage() {
   );
 
   // -------------------------------------------------------------------
-  // SESSION_START — landing screen with "Start Quiz" button
+  // Subscription blocked — paywall
   // -------------------------------------------------------------------
-  if (quiz.state === "SESSION_START" && !quiz.sessionId) {
-    if (quiz.recoveredSession) {
-      return (
-        <div className="flex flex-1 flex-col items-center justify-center px-4">
-          <div className="w-full max-w-md text-center">
-            <h1 className="text-3xl font-bold text-zinc-100">
-              Mandarin Quiz
-            </h1>
-            <p className="mt-2 text-zinc-400">
-              You have an unfinished session ({quiz.recoveredSession.stats.cardsReviewed} cards reviewed).
-            </p>
-            <div className="mt-8 flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={quiz.resumeSession}
-                className="min-h-11 w-full rounded-lg bg-indigo-600 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-indigo-500 active:bg-indigo-700"
-              >
-                Resume Session
-              </button>
-              <button
-                type="button"
-                onClick={quiz.startSession}
-                className="min-h-11 w-full rounded-lg border border-zinc-700 px-8 py-4 text-lg font-semibold text-zinc-300 transition-colors hover:bg-zinc-800 active:bg-zinc-700"
-              >
-                Start New
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    const quizBlocked = billing !== null && !billing.canAccessQuiz;
-
+  if (quiz.subscriptionBlocked) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
           <h1 className="text-3xl font-bold text-zinc-100">
             Mandarin Quiz
           </h1>
-          <p className="mt-2 text-zinc-400">
-            Review your flashcards with in-context sentences
-          </p>
-
-          {quizBlocked ? (
-            <div className="mt-8 rounded-xl border border-red-800 bg-red-900/20 p-6">
-              <p className="text-base text-red-200">
-                Your trial has expired. Subscribe to continue learning.
-              </p>
-              <a
-                href="/settings"
-                className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-indigo-600 px-8 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-500"
-              >
-                Subscribe
-              </a>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={quiz.startSession}
-              className="mt-8 min-h-11 w-full rounded-lg bg-indigo-600 px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-indigo-500 active:bg-indigo-700"
+          <div className="mt-8 rounded-xl border border-red-800 bg-red-900/20 p-6">
+            <p className="text-base text-red-200">
+              Your trial has expired. Subscribe to continue learning.
+            </p>
+            <a
+              href="/settings"
+              className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-indigo-600 px-8 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-500"
             >
-              Start Quiz
-            </button>
-          )}
+              Subscribe
+            </a>
+          </div>
         </div>
       </div>
     );
   }
 
   // -------------------------------------------------------------------
-  // SESSION_SUMMARY — all cards reviewed
+  // SESSION_SUMMARY — all cards reviewed for today
   // -------------------------------------------------------------------
   if (quiz.state === "SESSION_SUMMARY") {
     return (
       <div className="flex flex-1 flex-col">
-        {/* Stats bar */}
-        <QuizStatsBar stats={quiz.stats} sessionStartTime={quiz.sessionStartTime} />
+        <QuizStatsBar dailyStats={quiz.dailyStats} />
         <div className="flex flex-1 items-center justify-center">
-          <SessionSummary
-            stats={quiz.stats}
-            sessionStartTime={quiz.sessionStartTime}
-            onReviewAgain={quiz.startSession}
-          />
+          <SessionSummary dailyStats={quiz.dailyStats} />
         </div>
       </div>
     );
   }
 
   // -------------------------------------------------------------------
-  // CARD_START / loading states
+  // Loading state
   // -------------------------------------------------------------------
-  if (
-    quiz.state === "SESSION_START" ||
-    quiz.state === "CARD_START"
-  ) {
+  if (quiz.state === "CARD_START") {
     return (
       <div className="flex flex-1 flex-col">
-        <QuizStatsBar stats={quiz.stats} sessionStartTime={quiz.sessionStartTime} />
+        <QuizStatsBar dailyStats={quiz.dailyStats} />
         <div className="flex flex-1 items-center justify-center px-4">
           <LoadingSkeleton
             message="Generating sentence..."
@@ -168,7 +105,7 @@ export default function QuizPage() {
   if (!card || !card.sentence) {
     return (
       <div className="flex flex-1 flex-col">
-        <QuizStatsBar stats={quiz.stats} sessionStartTime={quiz.sessionStartTime} />
+        <QuizStatsBar dailyStats={quiz.dailyStats} />
         <div className="flex flex-1 items-center justify-center px-4">
           <LoadingSkeleton message="Loading..." />
         </div>
@@ -189,10 +126,8 @@ export default function QuizPage() {
     quiz.state === "PINYIN_CORRECT" ||
     quiz.state === "PINYIN_INCORRECT" ||
     quiz.state === "RETYPING_PINYIN";
-  const showCardComplete =
-    quiz.state === "CARD_RESULT" || quiz.state === "CARD_COMPLETE";
+  const showCardComplete = quiz.state === "CARD_COMPLETE";
 
-  // Keep showing result cards even after moving to later phases
   const showTranslationResult =
     showTranslationFeedback ||
     showPinyinInput ||
@@ -203,7 +138,7 @@ export default function QuizPage() {
 
   return (
     <div ref={swipeRef} className="flex flex-1 flex-col">
-      <QuizStatsBar stats={quiz.stats} sessionStartTime={quiz.sessionStartTime} />
+      <QuizStatsBar dailyStats={quiz.dailyStats} />
 
       {/* Error toast */}
       {quiz.error && (
@@ -222,7 +157,7 @@ export default function QuizPage() {
       )}
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6">
-        {/* Chinese sentence display — always visible during quiz */}
+        {/* Chinese sentence display */}
         <QuizCard
           sentence={card.sentence.sentence}
           wordBreakdown={card.sentence.wordBreakdown}
@@ -234,9 +169,8 @@ export default function QuizPage() {
         {/* Divider */}
         <div className="mx-4 mb-4 border-t border-zinc-700 sm:mx-8" />
 
-        {/* --- Translation phase --- */}
         <div className="space-y-4 px-4 sm:px-8">
-          {/* Translation input — AWAITING_TRANSLATION */}
+          {/* Translation input */}
           {(quiz.state === "AWAITING_TRANSLATION" ||
             isCheckingTranslation) && (
             <TranslationInput
@@ -246,7 +180,7 @@ export default function QuizPage() {
             />
           )}
 
-          {/* Translation feedback — persists through pinyin + card complete phases */}
+          {/* Translation feedback */}
           {showTranslationResult && card.translationResult && (
             <TranslationFeedback
               result={card.translationResult}
@@ -260,7 +194,7 @@ export default function QuizPage() {
             />
           )}
 
-          {/* --- Pinyin phase --- */}
+          {/* Pinyin input */}
           {showPinyinInput && (
             <PinyinInput
               targetWord={card.flashcard.word}
@@ -270,6 +204,7 @@ export default function QuizPage() {
             />
           )}
 
+          {/* Pinyin feedback */}
           {showPinyinResult && card.pinyinResult && (
             <PinyinFeedback
               result={card.pinyinResult}
@@ -281,7 +216,7 @@ export default function QuizPage() {
             />
           )}
 
-          {/* --- Card complete --- */}
+          {/* Card complete */}
           {showCardComplete && (
             <CardComplete
               scheduleResult={card.scheduleResult}
@@ -296,59 +231,33 @@ export default function QuizPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Inline stats bar (replaces the removed QuizHeader — slimmer, no nav)
+// Stats bar — shows daily progress
 // ---------------------------------------------------------------------------
-import type { SessionStats } from "@/hooks/useQuizStateMachine";
 
-function QuizStatsBar({
-  stats,
-  sessionStartTime,
-}: {
-  stats: SessionStats;
-  sessionStartTime: number | null;
-}) {
-  const [elapsed, setElapsed] = useState(0);
-
-  useEffect(() => {
-    if (!sessionStartTime) return;
-    const interval = setInterval(() => {
-      setElapsed(Date.now() - sessionStartTime);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [sessionStartTime]);
-
+function QuizStatsBar({ dailyStats }: { dailyStats: DailyStats }) {
   const accuracy =
-    stats.cardsReviewed > 0
-      ? Math.round((stats.cardsCorrect / stats.cardsReviewed) * 100)
+    dailyStats.reviewed > 0
+      ? Math.round((dailyStats.correct / dailyStats.reviewed) * 100)
       : 0;
-
-  const totalSeconds = Math.floor(elapsed / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  const timeStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
   return (
     <div className="flex w-full items-center justify-between border-b border-zinc-800 px-4 py-2.5">
       <div className="flex items-center gap-3">
         <span className="text-sm font-medium text-zinc-300">
-          Cards: {stats.cardsReviewed}
+          Today: {dailyStats.reviewed}
         </span>
-        {stats.cardsReviewed > 0 && (
+        {dailyStats.reviewed > 0 && (
           <span className="text-xs text-zinc-400">
             {accuracy}% accuracy
           </span>
         )}
       </div>
 
-      {stats.currentStreak > 1 && (
+      {dailyStats.currentStreak > 1 && (
         <div className="text-sm font-medium text-amber-400">
-          Streak: {stats.currentStreak}
+          Streak: {dailyStats.currentStreak}
         </div>
       )}
-
-      <div className="font-mono text-sm text-zinc-400">
-        {sessionStartTime ? timeStr : "--:--"}
-      </div>
     </div>
   );
 }

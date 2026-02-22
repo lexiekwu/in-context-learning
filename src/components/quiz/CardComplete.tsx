@@ -1,7 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { FlashcardScheduleResponse } from "@/types";
-import { cn } from "@/lib/cn";
 
 interface CardCompleteProps {
   scheduleResult: FlashcardScheduleResponse | null;
@@ -30,27 +30,41 @@ export function CardComplete({
   wasCorrect,
   onNextCard,
 }: CardCompleteProps) {
+  // Guard: ignore Enter events briefly after mount to prevent the Enter key
+  // from the previous input (retype pinyin/translation) from immediately advancing.
+  const readyRef = useRef(false);
+  useEffect(() => {
+    const timer = setTimeout(() => { readyRef.current = true; }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Enter" && readyRef.current) {
+        e.preventDefault();
+        onNextCard();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onNextCard]);
+
   return (
     <div className="w-full space-y-4">
-      {/* Result badge */}
+      {/* Result badge — matches TranslationFeedback/PinyinFeedback styling */}
       <div
-        className={cn(
-          "flex items-center gap-2 rounded-lg p-3 text-sm font-medium",
+        className={
           wasCorrect
-            ? "bg-green-900/20 text-green-300"
-            : "bg-amber-900/20 text-amber-300",
-        )}
+            ? "flex items-center gap-3 rounded-lg border border-green-800 bg-green-900/20 p-4"
+            : "flex items-center gap-3 rounded-lg border border-red-800 bg-red-900/20 p-4"
+        }
       >
-        {wasCorrect ? (
-          <>
-            <span>&#10003;</span> Card marked as <strong>Good</strong>
-          </>
-        ) : (
-          <>
-            <span>&#8635;</span> Card marked as <strong>Again</strong> &mdash;
-            you&apos;ll see it sooner
-          </>
-        )}
+        <span className={`text-lg ${wasCorrect ? "text-green-400" : "text-red-400"}`}>
+          {wasCorrect ? "\u2713" : "\u2717"}
+        </span>
+        <p className={`font-medium ${wasCorrect ? "text-green-300" : "text-red-300"}`}>
+          {wasCorrect ? "Card marked Good" : "Card marked Again"}
+        </p>
       </div>
 
       {/* Schedule info */}
@@ -93,7 +107,7 @@ export function CardComplete({
       </button>
 
       <p className="text-xs text-zinc-500">
-        Auto-advancing in 2 seconds...
+        Press Enter for next card
       </p>
     </div>
   );

@@ -11,7 +11,7 @@ async function main() {
 
   console.log("Creating product...");
   const product = await stripe.products.create({
-    name: "In Context Learning Pro",
+    name: "In Context Flashcards Pro",
     description: "Unlimited access to Mandarin quiz and flashcard features",
   });
 

@@ -11,12 +11,10 @@ import type {
 } from "@/types";
 
 // ---------------------------------------------------------------------------
-// Quiz States — matches the spec state machine
+// Quiz States
 // ---------------------------------------------------------------------------
 export type QuizState =
-  | "SESSION_START"
   | "CARD_START"
-  | "SHOW_SENTENCE"
   | "AWAITING_TRANSLATION"
   | "CHECKING_TRANSLATION"
   | "TRANSLATION_CORRECT"
@@ -27,16 +25,15 @@ export type QuizState =
   | "PINYIN_CORRECT"
   | "PINYIN_INCORRECT"
   | "RETYPING_PINYIN"
-  | "CARD_RESULT"
   | "CARD_COMPLETE"
   | "SESSION_SUMMARY";
 
 // ---------------------------------------------------------------------------
-// Session-level stats (client-side tracking)
+// Daily stats (displayed in the header)
 // ---------------------------------------------------------------------------
-export interface SessionStats {
-  cardsReviewed: number;
-  cardsCorrect: number;
+export interface DailyStats {
+  reviewed: number;
+  correct: number;
   currentStreak: number;
   longestStreak: number;
 }
@@ -53,7 +50,7 @@ export interface CurrentCardData {
   userPinyin: string;
   scheduleResult: FlashcardScheduleResponse | null;
   currentCardCorrect: boolean;
-  responseStartTime: number; // ms timestamp when sentence was shown
+  responseStartTime: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,17 +58,12 @@ export interface CurrentCardData {
 // ---------------------------------------------------------------------------
 export interface QuizStateMachine {
   state: QuizState;
-  sessionId: string | null;
   card: CurrentCardData | null;
-  stats: SessionStats;
+  dailyStats: DailyStats;
   error: string | null;
-  sessionStartTime: number | null;
-
-  recoveredSession: PersistedSession | null;
-  resumeSession: () => void;
+  subscriptionBlocked: boolean;
 
   // Actions
-  startSession: () => Promise<void>;
   loadNextCard: () => Promise<void>;
   submitTranslation: (translation: string) => Promise<void>;
   retypeTranslation: (translation: string) => boolean;
@@ -93,125 +85,32 @@ const CJK_REGEX =
   /[\u4E00-\u9FFF\u3400-\u4DBF\u{20000}-\u{2A6DF}\u{2A700}-\u{2B73F}\u{2B740}-\u{2B81F}\u{2B820}-\u{2CEAF}\u{2CEB0}-\u{2EBEF}\u{30000}-\u{3134F}]/gu;
 
 // ---------------------------------------------------------------------------
-// Session recovery (localStorage persistence)
-// ---------------------------------------------------------------------------
-const SESSION_STORAGE_KEY = "icl_quiz_session_v1";
-const SESSION_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
-
-interface PersistedSession {
-  sessionId: string;
-  state: QuizState;
-  flashcardId: string;
-  stats: SessionStats;
-  sessionStartTime: number;
-  savedAt: number;
-}
-
-function saveSession(data: PersistedSession): void {
-  try {
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // SSR or storage full — ignore
-  }
-}
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function isValidPersistedSession(data: unknown): data is PersistedSession {
-  if (!data || typeof data !== "object") return false;
-  const d = data as Record<string, unknown>;
-  return (
-    typeof d.sessionId === "string" &&
-    UUID_RE.test(d.sessionId) &&
-    typeof d.state === "string" &&
-    typeof d.flashcardId === "string" &&
-    UUID_RE.test(d.flashcardId) &&
-    typeof d.savedAt === "number" &&
-    typeof d.sessionStartTime === "number" &&
-    d.stats != null &&
-    typeof d.stats === "object" &&
-    typeof (d.stats as Record<string, unknown>).cardsReviewed === "number"
-  );
-}
-
-function loadSession(): PersistedSession | null {
-  try {
-    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!raw) return null;
-    const data: unknown = JSON.parse(raw);
-    if (!isValidPersistedSession(data)) {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-      return null;
-    }
-    if (Date.now() - data.savedAt > SESSION_MAX_AGE_MS) {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-      return null;
-    }
-    return data;
-  } catch {
-    return null;
-  }
-}
-
-function clearSession(): void {
-  try {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-  } catch {
-    // SSR — ignore
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Hook implementation
 // ---------------------------------------------------------------------------
 export function useQuizStateMachine(): QuizStateMachine {
-  const [state, setState] = useState<QuizState>("SESSION_START");
+  const [state, setState] = useState<QuizState>("CARD_START");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [card, setCard] = useState<CurrentCardData | null>(null);
-  const [stats, setStats] = useState<SessionStats>({
-    cardsReviewed: 0,
-    cardsCorrect: 0,
+  const [error, setError] = useState<string | null>(null);
+  const [subscriptionBlocked, setSubscriptionBlocked] = useState(false);
+
+  // Daily stats: baseline from API + session increments
+  const [dailyBaseline, setDailyBaseline] = useState({ reviewed: 0, correct: 0 });
+  const [sessionStats, setSessionStats] = useState({
+    reviewed: 0,
+    correct: 0,
     currentStreak: 0,
     longestStreak: 0,
   });
-  const [error, setError] = useState<string | null>(null);
-  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
-  const [recoveredSession, setRecoveredSession] = useState<PersistedSession | null>(null);
 
-  // Check for recoverable session on mount
-  useEffect(() => {
-    const saved = loadSession();
-    if (saved) {
-      setRecoveredSession(saved);
-    }
-  }, []);
+  const dailyStats: DailyStats = {
+    reviewed: dailyBaseline.reviewed + sessionStats.reviewed,
+    correct: dailyBaseline.correct + sessionStats.correct,
+    currentStreak: sessionStats.currentStreak,
+    longestStreak: sessionStats.longestStreak,
+  };
 
-  // Persist session state on transitions
-  useEffect(() => {
-    if (!sessionId || state === "SESSION_START" || state === "SESSION_SUMMARY") return;
-    const flashcardId = card?.flashcard?.id;
-    if (!flashcardId || !sessionStartTime) return;
-    saveSession({
-      sessionId,
-      state,
-      flashcardId,
-      stats,
-      sessionStartTime,
-      savedAt: Date.now(),
-    });
-  }, [sessionId, state, stats, card?.flashcard?.id, sessionStartTime]);
-
-  // Clear persisted session when summary is reached
-  useEffect(() => {
-    if (state === "SESSION_SUMMARY") {
-      clearSession();
-    }
-  }, [state]);
-
-  // Ref to avoid stale closures in auto-advance timers
-  const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Prefetch ref: stores the promise for the next card + sentence
+  // Prefetch ref
   type PrefetchResult =
     | { type: "card"; flashcard: NonNullable<NextCardResponse["flashcard"]>; sentence: GenerateSentenceResponse }
     | { type: "empty" };
@@ -221,74 +120,86 @@ export function useQuizStateMachine(): QuizStateMachine {
     sessionId: string;
   } | null>(null);
 
-  const clearAutoAdvance = useCallback(() => {
-    if (autoAdvanceTimer.current) {
-      clearTimeout(autoAdvanceTimer.current);
-      autoAdvanceTimer.current = null;
-    }
-  }, []);
-
-  // Helper: prefetch the next card + LLM sentence in the background (single API call)
+  // Helper: prefetch the next card + LLM sentence in the background
   async function prefetchNextCard(sid: string, excludeCardId?: string): Promise<PrefetchResult | null> {
     try {
       const res = await api.getNextCardWithSentence(sid, excludeCardId);
       if (!res.flashcard || !res.sentence) return { type: "empty" };
       return { type: "card", flashcard: res.flashcard, sentence: res.sentence };
     } catch {
-      return null; // Prefetch failure is non-fatal; loadNextCard will fetch normally
+      return null;
     }
   }
 
   // -------------------------------------------------------------------------
-  // startSession
+  // Auto-start on mount
   // -------------------------------------------------------------------------
-  const startSession = useCallback(async () => {
-    try {
-      setError(null);
-      clearSession();
-      setRecoveredSession(null);
-      setState("SESSION_START");
-      prefetchRef.current = null;
-      const res = await api.startSession();
-      setSessionId(res.sessionId);
-      setSessionStartTime(Date.now());
-      setStats({
-        cardsReviewed: 0,
-        cardsCorrect: 0,
-        currentStreak: 0,
-        longestStreak: 0,
-      });
-      // Immediately try to load first card
-      setState("CARD_START");
-      const nextCard = await api.getNextCard(res.sessionId);
-      if (!nextCard.flashcard) {
-        setState("SESSION_SUMMARY");
-        return;
+  const initRef = useRef(false);
+  useEffect(() => {
+    if (initRef.current) return;
+    initRef.current = true;
+
+    (async () => {
+      try {
+        setError(null);
+
+        // Fetch today's stats and start a session in parallel
+        const [todayRes, sessionRes] = await Promise.allSettled([
+          api.getTodayStats(),
+          api.startSession(),
+        ]);
+
+        // Handle today stats
+        if (todayRes.status === "fulfilled") {
+          setDailyBaseline({
+            reviewed: todayRes.value.reviewedToday ?? 0,
+            correct: todayRes.value.correctToday ?? 0,
+          });
+        }
+
+        // Handle session start
+        if (sessionRes.status === "rejected") {
+          const err = sessionRes.reason;
+          if (err && typeof err === "object" && "status" in err && err.status === 403) {
+            setSubscriptionBlocked(true);
+            return;
+          }
+          throw err;
+        }
+
+        const sid = sessionRes.value.sessionId;
+        setSessionId(sid);
+
+        // Load first card
+        const nextCard = await api.getNextCard(sid);
+        if (!nextCard.flashcard) {
+          setState("SESSION_SUMMARY");
+          return;
+        }
+
+        const sentenceRes = await api.generateSentence(nextCard.flashcard.id);
+        setCard({
+          flashcard: nextCard.flashcard,
+          sentence: sentenceRes,
+          translationResult: null,
+          pinyinResult: null,
+          userTranslation: "",
+          userPinyin: "",
+          scheduleResult: null,
+          currentCardCorrect: true,
+          responseStartTime: Date.now(),
+        });
+        setState("AWAITING_TRANSLATION");
+
+        // Prefetch card 2
+        prefetchRef.current = {
+          promise: prefetchNextCard(sid, nextCard.flashcard.id),
+          sessionId: sid,
+        };
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to start quiz");
       }
-      // Generate sentence
-      const sentenceRes = await api.generateSentence(nextCard.flashcard.id);
-      setCard({
-        flashcard: nextCard.flashcard,
-        sentence: sentenceRes,
-        translationResult: null,
-        pinyinResult: null,
-        userTranslation: "",
-        userPinyin: "",
-        scheduleResult: null,
-        currentCardCorrect: true,
-        responseStartTime: Date.now(),
-      });
-      setState("AWAITING_TRANSLATION");
-      // Start prefetching card 2 immediately (exclude current card)
-      prefetchRef.current = {
-        promise: prefetchNextCard(res.sessionId, nextCard.flashcard.id),
-        sessionId: res.sessionId,
-      };
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to start session",
-      );
-    }
+    })();
   }, []);
 
   // -------------------------------------------------------------------------
@@ -297,18 +208,14 @@ export function useQuizStateMachine(): QuizStateMachine {
   const loadNextCard = useCallback(async () => {
     if (!sessionId) return;
     try {
-      clearAutoAdvance();
       setError(null);
 
-      // Check if we have prefetched data for this session
+      // Check if we have prefetched data
       const pending = prefetchRef.current?.sessionId === sessionId
         ? prefetchRef.current
         : null;
 
       if (pending) {
-        // Don't show loading skeleton — stay on CARD_COMPLETE while we await
-        // the prefetch. Only show CARD_START if the prefetch isn't ready yet
-        // after a short grace period.
         const raceResult = await Promise.race([
           pending.promise.then((r) => ({ tag: "data" as const, result: r })),
           new Promise<{ tag: "timeout" }>((resolve) =>
@@ -320,7 +227,6 @@ export function useQuizStateMachine(): QuizStateMachine {
         if (raceResult.tag === "data") {
           prefetched = raceResult.result;
         } else {
-          // Data not ready yet — now show loading skeleton while we wait
           setState("CARD_START");
           prefetched = await pending.promise;
         }
@@ -331,7 +237,6 @@ export function useQuizStateMachine(): QuizStateMachine {
             setState("SESSION_SUMMARY");
             return;
           }
-          // Use prefetched data
           setCard({
             flashcard: prefetched.flashcard,
             sentence: prefetched.sentence,
@@ -344,7 +249,6 @@ export function useQuizStateMachine(): QuizStateMachine {
             responseStartTime: Date.now(),
           });
           setState("AWAITING_TRANSLATION");
-          // Start prefetching the NEXT card immediately (exclude current)
           prefetchRef.current = {
             promise: prefetchNextCard(sessionId, prefetched.flashcard.id),
             sessionId,
@@ -353,7 +257,7 @@ export function useQuizStateMachine(): QuizStateMachine {
         }
       }
 
-      // Fallback: no prefetch available, fetch normally
+      // Fallback: fetch normally
       setState("CARD_START");
       const nextCard = await api.getNextCard(sessionId);
       if (!nextCard.flashcard) {
@@ -373,19 +277,16 @@ export function useQuizStateMachine(): QuizStateMachine {
         responseStartTime: Date.now(),
       });
       setState("AWAITING_TRANSLATION");
-      // Start prefetching the NEXT card immediately (exclude current)
       prefetchRef.current = {
         promise: prefetchNextCard(sessionId, nextCard.flashcard.id),
         sessionId,
       };
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load next card",
+        err instanceof Error ? err.message : "Failed to load next card",
       );
     }
-  }, [sessionId, clearAutoAdvance]);
+  }, [sessionId]);
 
   // -------------------------------------------------------------------------
   // submitTranslation
@@ -396,7 +297,6 @@ export function useQuizStateMachine(): QuizStateMachine {
       const trimmed = translation.trim();
       if (!trimmed) return;
 
-      // Check if user typed Chinese instead of English
       const cjkMatches = trimmed.match(CJK_REGEX);
       if (cjkMatches && cjkMatches.length / trimmed.length > 0.5) {
         setError("Please type your answer in English.");
@@ -429,17 +329,13 @@ export function useQuizStateMachine(): QuizStateMachine {
 
         if (result.correct) {
           setState("TRANSLATION_CORRECT");
-          autoAdvanceTimer.current = setTimeout(() => {
-            setState("PINYIN_INPUT");
-          }, 1000);
+          setState("PINYIN_INPUT");
         } else {
           setState("TRANSLATION_INCORRECT");
         }
       } catch (err) {
         setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to check translation",
+          err instanceof Error ? err.message : "Failed to check translation",
         );
         setState("AWAITING_TRANSLATION");
       }
@@ -448,22 +344,19 @@ export function useQuizStateMachine(): QuizStateMachine {
   );
 
   // -------------------------------------------------------------------------
-  // retypeTranslation — lenient match against stored englishMeaning
+  // retypeTranslation
   // -------------------------------------------------------------------------
   const retypeTranslation = useCallback(
     (translation: string): boolean => {
       if (!card) return false;
       setState("RETYPING_TRANSLATION");
 
-      // Normalize: strip parentheticals, punctuation, spaces, dashes, lowercase
       const normalize = (s: string) =>
-        s.replace(/\(.*?\)/g, "")          // remove (parenthetical) content
-         .replace(/[^a-zA-Z0-9]/g, "")     // strip all non-alphanumeric
+        s.replace(/\(.*?\)/g, "")
+         .replace(/[^a-zA-Z0-9]/g, "")
          .toLowerCase();
 
       const userNorm = normalize(translation);
-
-      // Accept if it matches any slash/semicolon/comma-separated variant
       const variants = card.flashcard.englishMeaning.split(/[\/;,]/);
       for (const variant of variants) {
         if (normalize(variant) === userNorm) {
@@ -471,7 +364,6 @@ export function useQuizStateMachine(): QuizStateMachine {
           return true;
         }
       }
-      // Also check full meaning normalized
       if (normalize(card.flashcard.englishMeaning) === userNorm) {
         setState("PINYIN_INPUT");
         return true;
@@ -490,7 +382,6 @@ export function useQuizStateMachine(): QuizStateMachine {
       const trimmed = pinyin.trim();
       if (!trimmed) return;
 
-      // Check for tone-marked pinyin (soft rejection)
       if (TONE_MARK_REGEX.test(trimmed)) {
         setError(
           "Please use numbered tones instead of tone marks. For example, type ni3hao3 instead of nihao.",
@@ -498,7 +389,6 @@ export function useQuizStateMachine(): QuizStateMachine {
         return;
       }
 
-      // Check for English (no digits and no tone marks = likely English)
       if (!/\d/.test(trimmed) && !TONE_MARK_REGEX.test(trimmed)) {
         setError(
           "Please type the pinyin with tone numbers. For example: ni3hao3",
@@ -524,11 +414,7 @@ export function useQuizStateMachine(): QuizStateMachine {
         );
 
         if (result.correct) {
-          setState("PINYIN_CORRECT");
-          // Auto-advance after 1s to CARD_RESULT
-          autoAdvanceTimer.current = setTimeout(() => {
-            submitCardResult(true);
-          }, 1000);
+          submitCardResult(true);
         } else {
           setState("PINYIN_INCORRECT");
         }
@@ -544,7 +430,7 @@ export function useQuizStateMachine(): QuizStateMachine {
   );
 
   // -------------------------------------------------------------------------
-  // retypePinyin — normalized string match
+  // retypePinyin
   // -------------------------------------------------------------------------
   const retypePinyin = useCallback(
     (pinyin: string): boolean => {
@@ -567,7 +453,6 @@ export function useQuizStateMachine(): QuizStateMachine {
   // -------------------------------------------------------------------------
   // submitCardResult — internal helper to submit FSRS result
   // -------------------------------------------------------------------------
-  // Use a ref for card to avoid stale closures in submitCardResult
   const cardRef = useRef(card);
   cardRef.current = card;
 
@@ -576,18 +461,30 @@ export function useQuizStateMachine(): QuizStateMachine {
       const currentCard = cardRef.current;
       if (!currentCard || !sessionId || !currentCard.sentence) return;
       try {
-        setState("CARD_RESULT");
         const isCorrect = fromCorrectPinyin
           ? currentCard.currentCardCorrect
-          : false; // if retyping pinyin, the pinyin was wrong
-
-        // Determine the actual currentCardCorrect — need to check latest state
+          : false;
         const cardCorrect = isCorrect && currentCard.currentCardCorrect;
         const rating = cardCorrect ? "GOOD" : "AGAIN";
-
         const responseTimeMs = Date.now() - currentCard.responseStartTime;
 
-        const result = await api.submitResult({
+        // Immediately show CARD_COMPLETE and update stats
+        setSessionStats((prev) => {
+          const newReviewed = prev.reviewed + 1;
+          const newCorrect = prev.correct + (cardCorrect ? 1 : 0);
+          const newStreak = cardCorrect ? prev.currentStreak + 1 : 0;
+          const newLongest = Math.max(prev.longestStreak, newStreak);
+          return {
+            reviewed: newReviewed,
+            correct: newCorrect,
+            currentStreak: newStreak,
+            longestStreak: newLongest,
+          };
+        });
+        setState("CARD_COMPLETE");
+
+        // Fire off API call — schedule data fills in when it resolves
+        api.submitResult({
           sessionId,
           flashcardId: currentCard.flashcard.id,
           rating: rating as "GOOD" | "AGAIN",
@@ -598,54 +495,33 @@ export function useQuizStateMachine(): QuizStateMachine {
           userPinyin: currentCard.userPinyin || "unknown",
           pinyinCorrect: currentCard.pinyinResult?.correct ?? false,
           responseTimeMs,
-        });
-
-        // The API returns { updatedCard, sessionStats } — map to scheduleResult
-        const apiResult = result as unknown as {
-          updatedCard?: { state: string; due: string; stability: number; difficulty: number };
-        };
-        if (apiResult.updatedCard) {
-          setCard((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  scheduleResult: {
-                    id: currentCard.flashcard.id,
-                    nextDue: apiResult.updatedCard!.due,
-                    state: apiResult.updatedCard!.state as never,
-                    stability: apiResult.updatedCard!.stability,
-                    difficulty: apiResult.updatedCard!.difficulty,
-                    reps: currentCard.flashcard.reps + 1,
-                  },
-                }
-              : prev,
-          );
-        }
-
-        setStats((prev) => {
-          const newReviewed = prev.cardsReviewed + 1;
-          const newCorrect = prev.cardsCorrect + (cardCorrect ? 1 : 0);
-          const newStreak = cardCorrect ? prev.currentStreak + 1 : 0;
-          const newLongest = Math.max(prev.longestStreak, newStreak);
-          return {
-            cardsReviewed: newReviewed,
-            cardsCorrect: newCorrect,
-            currentStreak: newStreak,
-            longestStreak: newLongest,
+        }).then((result) => {
+          const apiResult = result as unknown as {
+            updatedCard?: { state: string; due: string; stability: number; difficulty: number };
           };
+          if (apiResult.updatedCard) {
+            setCard((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    scheduleResult: {
+                      id: currentCard.flashcard.id,
+                      nextDue: apiResult.updatedCard!.due,
+                      state: apiResult.updatedCard!.state as never,
+                      stability: apiResult.updatedCard!.stability,
+                      difficulty: apiResult.updatedCard!.difficulty,
+                      reps: currentCard.flashcard.reps + 1,
+                    },
+                  }
+                : prev,
+            );
+          }
+        }).catch((err: unknown) => {
+          console.error("Failed to submit card result:", err);
         });
-
-        setState("CARD_COMPLETE");
-
-        // Auto-advance after 2 seconds
-        autoAdvanceTimer.current = setTimeout(() => {
-          loadNextCard();
-        }, 2000);
       } catch (err) {
         setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to submit result",
+          err instanceof Error ? err.message : "Failed to submit result",
         );
       }
     },
@@ -654,24 +530,20 @@ export function useQuizStateMachine(): QuizStateMachine {
   );
 
   // -------------------------------------------------------------------------
-  // advanceFromCorrect — user taps/clicks during auto-advance states
+  // advanceFromCorrect
   // -------------------------------------------------------------------------
   const advanceFromCorrect = useCallback(() => {
-    clearAutoAdvance();
     if (state === "TRANSLATION_CORRECT") {
       setState("PINYIN_INPUT");
-    } else if (state === "PINYIN_CORRECT") {
-      submitCardResult(true);
     }
-  }, [state, clearAutoAdvance, submitCardResult]);
+  }, [state]);
 
   // -------------------------------------------------------------------------
-  // advanceFromCardComplete — user clicks "Next Card"
+  // advanceFromCardComplete
   // -------------------------------------------------------------------------
   const advanceFromCardComplete = useCallback(() => {
-    clearAutoAdvance();
     loadNextCard();
-  }, [clearAutoAdvance, loadNextCard]);
+  }, [loadNextCard]);
 
   // -------------------------------------------------------------------------
   // dismissError
@@ -680,58 +552,12 @@ export function useQuizStateMachine(): QuizStateMachine {
     setError(null);
   }, []);
 
-  // -------------------------------------------------------------------------
-  // resumeSession — restore a persisted session from localStorage
-  // -------------------------------------------------------------------------
-  const resumeSession = useCallback(async () => {
-    if (!recoveredSession) return;
-    const sid = recoveredSession.sessionId;
-    setSessionId(sid);
-    setStats(recoveredSession.stats);
-    setSessionStartTime(recoveredSession.sessionStartTime);
-    setRecoveredSession(null);
-    clearSession();
-    // Immediately load next card for resumed session
-    try {
-      setState("CARD_START");
-      setError(null);
-      const nextCard = await api.getNextCard(sid);
-      if (!nextCard.flashcard) {
-        setState("SESSION_SUMMARY");
-        return;
-      }
-      const sentenceRes = await api.generateSentence(nextCard.flashcard.id);
-      setCard({
-        flashcard: nextCard.flashcard,
-        sentence: sentenceRes,
-        translationResult: null,
-        pinyinResult: null,
-        userTranslation: "",
-        userPinyin: "",
-        scheduleResult: null,
-        currentCardCorrect: true,
-        responseStartTime: Date.now(),
-      });
-      setState("AWAITING_TRANSLATION");
-      prefetchRef.current = {
-        promise: prefetchNextCard(sid, nextCard.flashcard.id),
-        sessionId: sid,
-      };
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to resume session");
-    }
-  }, [recoveredSession]);
-
   return {
     state,
-    sessionId,
     card,
-    stats,
+    dailyStats,
     error,
-    sessionStartTime,
-    recoveredSession,
-    resumeSession,
-    startSession,
+    subscriptionBlocked,
     loadNextCard,
     submitTranslation,
     retypeTranslation,

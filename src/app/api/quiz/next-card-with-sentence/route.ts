@@ -167,6 +167,7 @@ export async function GET(request: NextRequest) {
           schema: SentenceGenerationResponseSchema,
           temperature: 0.7,
           maxTokens: 2000,
+          purpose: "generate-sentence",
         });
       }
     }

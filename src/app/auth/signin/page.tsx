@@ -27,7 +27,7 @@ function SignInContent() {
             字
           </span>
           <h1 className="text-2xl font-bold tracking-tight text-zinc-50">
-            In Context Learning
+            In Context Flashcards
           </h1>
           <p className="text-sm text-zinc-400">
             Sign in to continue your Mandarin practice.

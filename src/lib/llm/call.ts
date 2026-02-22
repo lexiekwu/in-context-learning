@@ -19,6 +19,8 @@ export interface CallLLMOptions<T> {
   temperature?: number;
   /** Max tokens (default: 1000). */
   maxTokens?: number;
+  /** Purpose label for usage tracking (e.g. "generate-sentence"). */
+  purpose?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,6 +105,7 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
     model = DEFAULT_MODEL,
     temperature = 0.7,
     maxTokens = 1000,
+    purpose = "unknown",
   } = options;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -112,6 +115,7 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
       const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
       let response;
+      const callStart = Date.now();
       try {
         response = await poe.chat.completions.create(
           {
@@ -129,6 +133,17 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
       } finally {
         clearTimeout(timeoutId);
       }
+
+      const durationMs = Date.now() - callStart;
+
+      // Log LLM call for usage tracking (fire-and-forget)
+      logLlmCall({
+        model,
+        purpose,
+        promptTokens: response.usage?.prompt_tokens ?? 0,
+        completionTokens: response.usage?.completion_tokens ?? 0,
+        durationMs,
+      });
 
       const content = response.choices[0]?.message?.content;
       if (!content) {
@@ -232,4 +247,33 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
 
   // Should never reach here, but TypeScript needs it
   throw new AppError(ErrorCode.LLM_ERROR, "LLM call failed after retries");
+}
+
+// ---------------------------------------------------------------------------
+// Usage logging (fire-and-forget)
+// ---------------------------------------------------------------------------
+
+function logLlmCall(data: {
+  model: string;
+  purpose: string;
+  promptTokens: number;
+  completionTokens: number;
+  durationMs: number;
+}) {
+  // Lazy import to avoid circular dependency issues
+  import("@/lib/db").then(({ db }) => {
+    db.llmCall
+      .create({
+        data: {
+          model: data.model,
+          purpose: data.purpose,
+          promptTokens: data.promptTokens,
+          completionTokens: data.completionTokens,
+          durationMs: data.durationMs,
+        },
+      })
+      .catch((err: unknown) => {
+        logger.warn({ err }, "Failed to log LLM call");
+      });
+  });
 }

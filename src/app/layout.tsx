@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "In Context Learning",
+  title: "In Context Flashcards",
   description:
     "Master Mandarin with AI-powered flashcards, spaced repetition, and contextual sentence practice.",
 };

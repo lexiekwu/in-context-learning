@@ -125,3 +125,16 @@ model StudySession {
 
   @@index([userId, startedAt])
 }
+
+model LlmCall {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  model            String
+  purpose          String   // e.g. "generate-sentence", "check-translation", "ai-create"
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  durationMs       Int      @default(0)
+  calledAt         DateTime @default(now())
+
+  @@index([calledAt])
+  @@index([purpose])
+}
