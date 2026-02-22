@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 
 /**
  * Paths that do NOT require authentication.
@@ -16,12 +16,15 @@ function isPublicPath(pathname: string): boolean {
 /**
  * Edge Middleware for API route protection.
  *
+ * Uses `getToken` from next-auth/jwt instead of the full `auth()` wrapper
+ * to avoid pulling Prisma (Node.js-only) into the Edge Runtime bundle.
+ *
  * 1. Validates Auth.js JWT session on all /api/* routes
  *    (except public paths listed above).
  * 2. Rate limiting is handled per-route in Node.js runtime
  *    (not in Edge middleware) to avoid Node.js module issues.
  */
-export default auth(async (req) => {
+export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Only protect /api/* routes
@@ -34,8 +37,10 @@ export default auth(async (req) => {
     return NextResponse.next();
   }
 
-  // Check for a valid session (auth() adds req.auth)
-  if (!req.auth?.user) {
+  // Decode JWT without importing Prisma
+  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+
+  if (!token?.userId) {
     return NextResponse.json(
       {
         error: {
@@ -49,7 +54,7 @@ export default auth(async (req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 /**
  * Matcher: run middleware on API routes and auth callback routes.
