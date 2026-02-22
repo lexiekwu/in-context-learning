@@ -151,10 +151,10 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
           logger.warn({ attempt: attempt + 1, preview: cleaned.slice(0, 200) }, "Malformed JSON from LLM, retrying");
           continue;
         }
+        logger.error({ preview: cleaned.slice(0, 200) }, "Malformed JSON in LLM response after all retries");
         throw new AppError(
           ErrorCode.LLM_ERROR,
-          "Malformed JSON in LLM response",
-          { rawContent: cleaned.slice(0, 200) }
+          "Malformed JSON in LLM response"
         );
       }
 

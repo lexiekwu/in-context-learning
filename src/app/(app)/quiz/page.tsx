@@ -17,13 +17,14 @@ import type { WordBreakdownEntry, BillingStatusResponse } from "@/types";
 export default function QuizPage() {
   const quiz = useQuizStateMachine();
 
+  const { state: quizState, advanceFromCorrect, advanceFromCardComplete } = quiz;
   const handleSwipeLeft = useCallback(() => {
-    if (quiz.state === "TRANSLATION_CORRECT" || quiz.state === "PINYIN_CORRECT") {
-      quiz.advanceFromCorrect();
-    } else if (quiz.state === "CARD_COMPLETE") {
-      quiz.advanceFromCardComplete();
+    if (quizState === "TRANSLATION_CORRECT" || quizState === "PINYIN_CORRECT") {
+      advanceFromCorrect();
+    } else if (quizState === "CARD_COMPLETE") {
+      advanceFromCardComplete();
     }
-  }, [quiz.state, quiz.advanceFromCorrect, quiz.advanceFromCardComplete]);
+  }, [quizState, advanceFromCorrect, advanceFromCardComplete]);
 
   const swipeRef = useSwipeGesture({ onSwipeLeft: handleSwipeLeft });
 

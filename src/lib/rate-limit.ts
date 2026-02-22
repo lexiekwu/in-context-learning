@@ -1,14 +1,21 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 
 function createRedis(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token || !url.startsWith("https://")) return null;
+  if (!url || !token || !url.startsWith("https://")) {
+    if (process.env.NODE_ENV === "production") {
+      logger.warn("Rate limiting is disabled: UPSTASH_REDIS_REST_URL/TOKEN not configured");
+    }
+    return null;
+  }
   try {
     return new Redis({ url, token });
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "Failed to initialize Upstash Redis client");
     return null;
   }
 }

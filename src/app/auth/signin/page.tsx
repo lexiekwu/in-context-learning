@@ -3,6 +3,7 @@
 import { signIn } from "@/lib/auth-client";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import Link from "next/link";
 
 export default function SignInPage() {
   return (
@@ -58,12 +59,12 @@ function SignInContent() {
           Sign in with Google
         </button>
 
-        <a
+        <Link
           href="/"
           className="text-sm text-zinc-500 transition-colors hover:text-zinc-300"
         >
           Back to home
-        </a>
+        </Link>
       </div>
     </div>
   );

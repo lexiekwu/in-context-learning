@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const updateSettingsSchema = z.object({
   characterSet: z.enum(["TRADITIONAL", "SIMPLIFIED"]),
@@ -16,6 +17,10 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
+
+  const limited = await checkRateLimit("flashcard", userId);
+  if (limited) return limited;
 
   const user = await db.user.findUnique({
     where: { id: session.user.id },
@@ -38,6 +43,9 @@ export async function PUT(request: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const limited = await checkRateLimit("flashcard", session.user.id);
+  if (limited) return limited;
 
   let body: unknown;
   try {

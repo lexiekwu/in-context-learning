@@ -5,6 +5,7 @@ import {
   errorResponse,
   unauthorizedError,
 } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
   getTodayReviewStats,
   computeStreak,
@@ -25,6 +26,9 @@ export async function GET() {
     }
 
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("flashcard", userId);
+    if (limited) return limited;
 
     // Run all queries in parallel
     const [todayStats, streak, dueToday, totalCards, cardsByStateRaw] =

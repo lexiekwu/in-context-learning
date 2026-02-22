@@ -115,11 +115,34 @@ function saveSession(data: PersistedSession): void {
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidPersistedSession(data: unknown): data is PersistedSession {
+  if (!data || typeof data !== "object") return false;
+  const d = data as Record<string, unknown>;
+  return (
+    typeof d.sessionId === "string" &&
+    UUID_RE.test(d.sessionId) &&
+    typeof d.state === "string" &&
+    typeof d.flashcardId === "string" &&
+    UUID_RE.test(d.flashcardId) &&
+    typeof d.savedAt === "number" &&
+    typeof d.sessionStartTime === "number" &&
+    d.stats != null &&
+    typeof d.stats === "object" &&
+    typeof (d.stats as Record<string, unknown>).cardsReviewed === "number"
+  );
+}
+
 function loadSession(): PersistedSession | null {
   try {
     const raw = localStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
-    const data = JSON.parse(raw) as PersistedSession;
+    const data: unknown = JSON.parse(raw);
+    if (!isValidPersistedSession(data)) {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      return null;
+    }
     if (Date.now() - data.savedAt > SESSION_MAX_AGE_MS) {
       localStorage.removeItem(SESSION_STORAGE_KEY);
       return null;

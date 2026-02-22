@@ -6,6 +6,7 @@ import {
   unauthorizedError,
   validationError,
 } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { MetricsHistoryEntry, MetricsHistoryResponse } from "@/types";
 
 const VALID_PERIODS = ["7d", "30d", "90d", "all"] as const;
@@ -37,6 +38,9 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
+
+    const limited = await checkRateLimit("flashcard", userId);
+    if (limited) return limited;
 
     // Parse and validate period param
     const { searchParams } = new URL(request.url);
