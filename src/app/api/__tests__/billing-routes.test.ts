@@ -24,7 +24,7 @@ vi.mock("@/lib/db", () => ({ db: { user: mockDbUser } }));
 vi.mock("@/lib/subscription", () => ({
   checkSubscriptionAccess: mockCheckSubscriptionAccess,
 }));
-vi.mock("@/lib/stripe", () => ({ stripe: mockStripe }));
+vi.mock("@/lib/stripe", () => ({ getStripe: () => mockStripe }));
 vi.mock("@/lib/env", () => ({
   env: {
     STRIPE_WEBHOOK_SECRET: "whsec_test_secret",

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { errorResponse, unauthorizedError } from "@/lib/errors";
 
 const ADMIN_EMAILS = ["lexiekwu@gmail.com"];
@@ -201,7 +201,7 @@ export async function GET() {
     };
 
     try {
-      const invoices = await stripe.invoices.list({
+      const invoices = await getStripe().invoices.list({
         limit: 100,
         status: "paid",
         created: {
