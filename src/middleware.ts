@@ -37,8 +37,11 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Decode JWT without importing Prisma
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  // Decode JWT without importing Prisma.
+  // secureCookie must be true on HTTPS so getToken looks for the
+  // __Secure-authjs.session-token cookie (not the plain one).
+  const secureCookie = req.nextUrl.protocol === "https:";
+  const token = await getToken({ req, secret: process.env.AUTH_SECRET, secureCookie });
 
   if (!token?.userId) {
     return NextResponse.json(
