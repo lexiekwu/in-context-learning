@@ -16,6 +16,14 @@ export async function POST() {
     const limited = await checkRateLimit("billing", userId);
     if (limited) return limited;
 
+    // Check Stripe is configured before doing any work
+    if (!env.STRIPE_SECRET_KEY || !env.STRIPE_MONTHLY_PRICE_ID) {
+      return NextResponse.json(
+        { error: "Billing is not configured yet. Please check back soon." },
+        { status: 503 },
+      );
+    }
+
     const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
 
     // Find or create Stripe customer
@@ -33,19 +41,11 @@ export async function POST() {
       });
     }
 
-    const priceId = env.STRIPE_MONTHLY_PRICE_ID;
-    if (!priceId) {
-      return NextResponse.json(
-        { error: "Billing not configured" },
-        { status: 503 },
-      );
-    }
-
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? env.NEXTAUTH_URL;
     const checkoutSession = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: env.STRIPE_MONTHLY_PRICE_ID, quantity: 1 }],
       success_url: `${appUrl}/settings?billing=success`,
       cancel_url: `${appUrl}/settings?billing=cancelled`,
       metadata: { userId },

@@ -15,6 +15,13 @@ export async function POST() {
     const limited = await checkRateLimit("billing", userId);
     if (limited) return limited;
 
+    if (!env.STRIPE_SECRET_KEY) {
+      return NextResponse.json(
+        { error: "Billing is not configured yet. Please check back soon." },
+        { status: 503 },
+      );
+    }
+
     const user = await db.user.findUniqueOrThrow({
       where: { id: userId },
     });

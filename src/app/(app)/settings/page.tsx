@@ -193,6 +193,7 @@ function SubscriptionSection() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/billing/status")
@@ -204,28 +205,40 @@ function SubscriptionSection() {
 
   async function handleSubscribe() {
     setActionLoading(true);
+    setActionError(null);
     try {
       const res = await fetch("/api/billing/create-checkout", { method: "POST" });
-      if (!res.ok) throw new Error("Failed to create checkout session");
       const data = await res.json();
+      if (!res.ok) {
+        setActionError(data.error ?? "Failed to create checkout session");
+        setActionLoading(false);
+        return;
+      }
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       }
     } catch {
+      setActionError("Something went wrong. Please try again.");
       setActionLoading(false);
     }
   }
 
   async function handleManageBilling() {
     setActionLoading(true);
+    setActionError(null);
     try {
       const res = await fetch("/api/billing/create-portal", { method: "POST" });
-      if (!res.ok) throw new Error("Failed to create portal session");
       const data = await res.json();
+      if (!res.ok) {
+        setActionError(data.error ?? "Failed to open billing portal");
+        setActionLoading(false);
+        return;
+      }
       if (data.portalUrl) {
         window.location.href = data.portalUrl;
       }
     } catch {
+      setActionError("Something went wrong. Please try again.");
       setActionLoading(false);
     }
   }
@@ -274,6 +287,10 @@ function SubscriptionSection() {
         >
           {actionLoading ? "Loading..." : "Subscribe"}
         </button>
+      )}
+
+      {actionError && (
+        <p className="mt-2 text-sm text-red-400">{actionError}</p>
       )}
     </div>
   );
