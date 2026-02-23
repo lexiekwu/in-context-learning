@@ -6,6 +6,7 @@ interface LlmPeriod {
   calls: number;
   promptTokens: number;
   completionTokens: number;
+  estimatedCost: number;
 }
 
 interface AdminMetrics {
@@ -48,6 +49,7 @@ interface AdminMetrics {
       promptTokens: number;
       completionTokens: number;
       avgDurationMs: number;
+      estimatedCost: number;
     }>;
     daily: Array<{
       day: string;
@@ -254,19 +256,20 @@ export default function AdminPage() {
       <Section title="LLM Spend">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label="Total Calls"
-            value={llm.total.calls}
-            sub={`${((llm.total.promptTokens + llm.total.completionTokens) / 1000).toFixed(1)}k tokens`}
+            label="Est. Total Cost"
+            value={`$${llm.total.estimatedCost.toFixed(4)}`}
+            sub={`${llm.total.calls} calls · ${((llm.total.promptTokens + llm.total.completionTokens) / 1000).toFixed(1)}k tokens`}
+            color="text-emerald-400"
           />
           <StatCard
-            label="Calls (7d)"
-            value={llm.last7d.calls}
-            sub={`${((llm.last7d.promptTokens + llm.last7d.completionTokens) / 1000).toFixed(1)}k tokens`}
+            label="Est. Cost (7d)"
+            value={`$${llm.last7d.estimatedCost.toFixed(4)}`}
+            sub={`${llm.last7d.calls} calls · ${((llm.last7d.promptTokens + llm.last7d.completionTokens) / 1000).toFixed(1)}k tokens`}
           />
           <StatCard
-            label="Calls (30d)"
-            value={llm.last30d.calls}
-            sub={`${((llm.last30d.promptTokens + llm.last30d.completionTokens) / 1000).toFixed(1)}k tokens`}
+            label="Est. Cost (30d)"
+            value={`$${llm.last30d.estimatedCost.toFixed(4)}`}
+            sub={`${llm.last30d.calls} calls · ${((llm.last30d.promptTokens + llm.last30d.completionTokens) / 1000).toFixed(1)}k tokens`}
           />
           <StatCard
             label="Avg Tokens/Call"
@@ -292,6 +295,7 @@ export default function AdminPage() {
                   <th className="px-4 py-3 text-right">Calls</th>
                   <th className="px-4 py-3 text-right">Prompt Tokens</th>
                   <th className="px-4 py-3 text-right">Completion Tokens</th>
+                  <th className="px-4 py-3 text-right">Est. Cost</th>
                   <th className="px-4 py-3 text-right">Avg Latency</th>
                 </tr>
               </thead>
@@ -309,6 +313,9 @@ export default function AdminPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       {p.completionTokens.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right text-emerald-400">
+                      ${p.estimatedCost.toFixed(4)}
                     </td>
                     <td className="px-4 py-3 text-right text-zinc-400">
                       {p.avgDurationMs > 0
@@ -517,7 +524,7 @@ function DailyTokenChart({
           Completion
         </span>
       </div>
-      <div className="relative flex h-40 items-end gap-px">
+      <div className="relative flex h-40 items-stretch gap-px">
         {data.map((entry, i) => {
           const total = entry.promptTokens + entry.completionTokens;
           const totalHeight = (total / maxTokens) * 100;
@@ -600,7 +607,7 @@ function DailyChart({
           Incorrect
         </span>
       </div>
-      <div className="relative flex h-40 items-end gap-px">
+      <div className="relative flex h-40 items-stretch gap-px">
         {data.map((entry, i) => {
           const totalHeight = (entry.reviews / maxReviews) * 100;
           const correctPct =

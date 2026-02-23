@@ -89,17 +89,30 @@ export async function GET() {
       `,
     ]);
 
+    // Approximate per-token pricing (USD per 1M tokens) for Gemini 2.5 Flash via Poe
+    const PRICING: Record<string, { input: number; output: number }> = {
+      "Gemini-2.5-Flash": { input: 0.15, output: 0.60 },
+      "Gemini-2.5-Pro": { input: 1.25, output: 10.0 },
+    };
+    const DEFAULT_PRICING = { input: 0.15, output: 0.60 };
+
+    function estimateCost(promptTokens: number, completionTokens: number, model?: string) {
+      const p = (model && PRICING[model]) || DEFAULT_PRICING;
+      return (promptTokens * p.input + completionTokens * p.output) / 1_000_000;
+    }
+
     // LLM queries (separate try/catch — may fail if Prisma client is stale)
     let llmData = {
-      total: { calls: 0, promptTokens: 0, completionTokens: 0 },
-      last7d: { calls: 0, promptTokens: 0, completionTokens: 0 },
-      last30d: { calls: 0, promptTokens: 0, completionTokens: 0 },
+      total: { calls: 0, promptTokens: 0, completionTokens: 0, estimatedCost: 0 },
+      last7d: { calls: 0, promptTokens: 0, completionTokens: 0, estimatedCost: 0 },
+      last30d: { calls: 0, promptTokens: 0, completionTokens: 0, estimatedCost: 0 },
       byPurpose: [] as Array<{
         purpose: string;
         calls: number;
         promptTokens: number;
         completionTokens: number;
         avgDurationMs: number;
+        estimatedCost: number;
       }>,
       daily: [] as Array<{
         day: string;
@@ -157,16 +170,28 @@ export async function GET() {
           calls: llmTotals._count._all,
           promptTokens: llmTotals._sum.promptTokens ?? 0,
           completionTokens: llmTotals._sum.completionTokens ?? 0,
+          estimatedCost: estimateCost(
+            llmTotals._sum.promptTokens ?? 0,
+            llmTotals._sum.completionTokens ?? 0,
+          ),
         },
         last7d: {
           calls: llmLast7d._count._all,
           promptTokens: llmLast7d._sum.promptTokens ?? 0,
           completionTokens: llmLast7d._sum.completionTokens ?? 0,
+          estimatedCost: estimateCost(
+            llmLast7d._sum.promptTokens ?? 0,
+            llmLast7d._sum.completionTokens ?? 0,
+          ),
         },
         last30d: {
           calls: llmLast30d._count._all,
           promptTokens: llmLast30d._sum.promptTokens ?? 0,
           completionTokens: llmLast30d._sum.completionTokens ?? 0,
+          estimatedCost: estimateCost(
+            llmLast30d._sum.promptTokens ?? 0,
+            llmLast30d._sum.completionTokens ?? 0,
+          ),
         },
         byPurpose: llmByPurpose.map((g) => ({
           purpose: g.purpose,
@@ -174,6 +199,10 @@ export async function GET() {
           promptTokens: g._sum.promptTokens ?? 0,
           completionTokens: g._sum.completionTokens ?? 0,
           avgDurationMs: Math.round(g._avg.durationMs ?? 0),
+          estimatedCost: estimateCost(
+            g._sum.promptTokens ?? 0,
+            g._sum.completionTokens ?? 0,
+          ),
         })),
         daily: dailyLlm.map((d) => ({
           day: d.day,

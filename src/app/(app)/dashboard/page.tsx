@@ -287,7 +287,7 @@ function ReviewHistoryChart({
       </div>
 
       {/* Chart area */}
-      <div className="relative flex h-40 items-end gap-px">
+      <div className="relative flex h-40 items-stretch gap-px">
         {data.map((entry, i) => {
           const totalHeight =
             maxReviewed > 0 ? (entry.cardsReviewed / maxReviewed) * 100 : 0;
