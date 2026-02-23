@@ -27,6 +27,9 @@ import {
   getSessionCardIds,
   countNewCardsReviewedToday,
   computeStreak,
+  getTodayReviewStats,
+  countDueCards,
+  getNextDueCard,
 } from "@/lib/db/queries";
 
 // Cast to access mock methods
@@ -212,5 +215,160 @@ describe("computeStreak", () => {
     const result = await computeStreak("user-1");
 
     expect(result).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getTodayReviewStats
+// ---------------------------------------------------------------------------
+
+describe("getTodayReviewStats", () => {
+  it("returns correct aggregated stats", async () => {
+    mockDb.reviewLog.findMany.mockResolvedValue([
+      { overallRating: "GOOD", priorState: "NEW" },
+      { overallRating: "GOOD", priorState: "REVIEW" },
+      { overallRating: "AGAIN", priorState: "REVIEW" },
+      { overallRating: "GOOD", priorState: "NEW" },
+    ]);
+
+    const result = await getTodayReviewStats("user-1");
+
+    expect(result.reviewedToday).toBe(4);
+    expect(result.correctToday).toBe(3);
+    expect(result.newCardsStudied).toBe(2);
+    expect(result.accuracy).toBe(0.75);
+  });
+
+  it("returns zeros when no reviews today", async () => {
+    mockDb.reviewLog.findMany.mockResolvedValue([]);
+
+    const result = await getTodayReviewStats("user-1");
+
+    expect(result.reviewedToday).toBe(0);
+    expect(result.correctToday).toBe(0);
+    expect(result.newCardsStudied).toBe(0);
+    expect(result.accuracy).toBe(0);
+  });
+
+  it("filters by today's date", async () => {
+    mockDb.reviewLog.findMany.mockResolvedValue([]);
+
+    await getTodayReviewStats("user-1");
+
+    const callArgs = mockDb.reviewLog.findMany.mock.calls[0][0];
+    expect(callArgs.where.userId).toBe("user-1");
+    const gteDate = callArgs.where.reviewedAt.gte as Date;
+    expect(gteDate.getUTCHours()).toBe(0);
+    expect(gteDate.getUTCMinutes()).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// countDueCards
+// ---------------------------------------------------------------------------
+
+describe("countDueCards", () => {
+  it("counts non-NEW cards that are due", async () => {
+    mockDb.flashcard.count.mockResolvedValue(42);
+
+    const result = await countDueCards("user-1");
+
+    expect(result).toBe(42);
+    const callArgs = mockDb.flashcard.count.mock.calls[0][0];
+    expect(callArgs.where.userId).toBe("user-1");
+    expect(callArgs.where.state).toEqual({ not: "NEW" });
+    expect(callArgs.where.due.lte).toBeInstanceOf(Date);
+  });
+
+  it("returns 0 when no cards are due", async () => {
+    mockDb.flashcard.count.mockResolvedValue(0);
+
+    const result = await countDueCards("user-1");
+
+    expect(result).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getNextDueCard
+// ---------------------------------------------------------------------------
+
+describe("getNextDueCard", () => {
+  const now = new Date();
+  const pastDue = new Date(now.getTime() - 60000);
+
+  beforeEach(() => {
+    // Default: no session cards reviewed
+    mockDb.reviewLog.findMany.mockResolvedValue([]);
+    // Default: no new cards reviewed today
+    mockDb.reviewLog.count.mockResolvedValue(0);
+  });
+
+  it("returns learning card first (priority 1)", async () => {
+    const learningCard = {
+      id: "card-learning",
+      state: "LEARNING",
+      due: pastDue,
+    };
+    // getTodayReviewStats (called internally)
+    mockDb.reviewLog.findMany
+      .mockResolvedValueOnce([]) // getSessionCardIds
+      .mockResolvedValueOnce([]) // getTodayReviewStats
+      .mockResolvedValueOnce([]); // countReviewsSinceLastNew (not reached)
+
+    // Learning cards query
+    mockDb.flashcard.findMany.mockResolvedValueOnce([learningCard]);
+    // countRemainingCards queries
+    mockDb.flashcard.count
+      .mockResolvedValueOnce(5) // due count
+      .mockResolvedValueOnce(3); // new count
+
+    const result = await getNextDueCard("user-1", "session-1");
+
+    expect(result.card).toBeDefined();
+    expect(result.card!.id).toBe("card-learning");
+  });
+
+  it("returns null when no cards available", async () => {
+    mockDb.reviewLog.findMany
+      .mockResolvedValueOnce([]) // getSessionCardIds
+      .mockResolvedValueOnce([]) // getTodayReviewStats
+      .mockResolvedValueOnce([]); // countReviewsSinceLastNew
+
+    // No learning, review, or new cards
+    mockDb.flashcard.findMany
+      .mockResolvedValueOnce([]) // learning cards
+      .mockResolvedValueOnce([]) // review cards
+      .mockResolvedValueOnce([]); // new cards (interleave)
+
+    mockDb.flashcard.findFirst.mockResolvedValue(null); // no next due
+
+    const result = await getNextDueCard("user-1", "session-1");
+
+    expect(result.card).toBeNull();
+    expect(result.cardsRemaining).toBe(0);
+  });
+
+  it("excludes extra IDs when provided", async () => {
+    // Override the default for getSessionCardIds
+    mockDb.reviewLog.findMany.mockReset();
+    mockDb.reviewLog.findMany
+      .mockResolvedValueOnce([{ flashcardId: "card-a" }]) // getSessionCardIds
+      .mockResolvedValueOnce([]) // getTodayReviewStats
+      .mockResolvedValueOnce([]); // countReviewsSinceLastNew
+
+    mockDb.flashcard.findMany
+      .mockResolvedValueOnce([]) // learning
+      .mockResolvedValueOnce([]) // review
+      .mockResolvedValueOnce([]); // new (interleave)
+
+    mockDb.flashcard.findFirst.mockResolvedValue(null);
+
+    await getNextDueCard("user-1", "session-1", ["card-b"]);
+
+    // The learning cards query should exclude both card-a and card-b
+    const learningQuery = mockDb.flashcard.findMany.mock.calls[0][0];
+    expect(learningQuery.where.id.notIn).toContain("card-a");
+    expect(learningQuery.where.id.notIn).toContain("card-b");
   });
 });
