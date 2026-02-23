@@ -18,6 +18,7 @@ import Google from "next-auth/providers/google";
  * enrichment which happens in the Node.js runtime, not in Edge middleware.
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   session: { strategy: "jwt" },
 
   providers: [
