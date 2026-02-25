@@ -210,7 +210,8 @@ function SubscriptionSection() {
       const res = await fetch("/api/billing/create-checkout", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        setActionError(data.error ?? "Failed to create checkout session");
+        const msg = typeof data.error === "string" ? data.error : data.error?.message ?? "Failed to create checkout session";
+        setActionError(msg);
         setActionLoading(false);
         return;
       }
@@ -230,7 +231,8 @@ function SubscriptionSection() {
       const res = await fetch("/api/billing/create-portal", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        setActionError(data.error ?? "Failed to open billing portal");
+        const msg = typeof data.error === "string" ? data.error : data.error?.message ?? "Failed to open billing portal";
+        setActionError(msg);
         setActionLoading(false);
         return;
       }
