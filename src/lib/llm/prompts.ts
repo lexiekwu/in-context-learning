@@ -22,6 +22,7 @@ Rules you MUST follow:
 7. Wrap the target word in <mark> tags in the sentenceWithHighlight field.
 8. The wordBreakdown must segment the sentence into individual words (not characters, unless the word IS a single character). Every word in the sentence must appear in the breakdown, in order.
 9. The translation should be natural English, not word-for-word.
+10. Each wordBreakdown "meaning" must be a single short English gloss — one or two words a learner would type (e.g. "to eat", "happy", "computer"). Never list multiple definitions separated by semicolons, slashes, or commas.
 
 Respond with valid JSON only. No markdown, no code fences, no extra text.`;
 }
@@ -44,7 +45,7 @@ Respond with JSON in this exact format:
   "sentenceWithHighlight": "<same sentence with target word wrapped in <mark> tags>",
   "translation": "<natural English translation>",
   "wordBreakdown": [
-    { "word": "<Chinese word>", "pinyin": "<numbered pinyin>", "meaning": "<English meaning>" }
+    { "word": "<Chinese word>", "pinyin": "<numbered pinyin>", "meaning": "<single short English gloss>" }
   ]
 }`;
 }
