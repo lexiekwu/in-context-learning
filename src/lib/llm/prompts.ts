@@ -20,7 +20,7 @@ Rules you MUST follow:
 5. The sentence should sound like something a native speaker would actually say — conversational and natural, not textbook-stilted.
 6. Match the sentence complexity to the target word itself. If the word is basic (e.g. 你, 吃), use a simple sentence. If the word is advanced (e.g. 推動, 反映), use a more sophisticated sentence with appropriate context. The rest of the vocabulary in the sentence should be simpler than the target word.
 7. Wrap the target word in <mark> tags in the sentenceWithHighlight field.
-8. The wordBreakdown must segment the sentence into individual words (not characters, unless the word IS a single character). Every word in the sentence must appear in the breakdown, in order.
+8. The wordBreakdown must segment the sentence into individual words (not characters, unless the word IS a single character). Every word in the sentence must appear in the breakdown, in order. Include punctuation marks (。，！？、；：) as their own entries with pinyin "" and meaning "punctuation".
 9. The translation should be natural English, not word-for-word.
 10. Each wordBreakdown "meaning" must be a single short English gloss — one or two words a learner would type (e.g. "to eat", "happy", "computer"). Never list multiple definitions separated by semicolons, slashes, or commas.
 

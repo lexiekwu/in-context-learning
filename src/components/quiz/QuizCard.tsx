@@ -136,6 +136,14 @@ export function QuizCard({
     return (
       <p className="text-xl leading-relaxed sm:text-2xl">
         {wordBreakdown.map((entry, i) => {
+          const isPunctuation = entry.meaning === "punctuation" || /^[。，！？、；：…—""''《》【】（）\s]+$/.test(entry.word);
+          if (isPunctuation) {
+            return (
+              <span key={`${entry.word}-${i}`} className="text-zinc-100">
+                {entry.word}
+              </span>
+            );
+          }
           const isTarget = entry.isTarget || (targetWord != null && entry.word === targetWord);
           return (
           <span

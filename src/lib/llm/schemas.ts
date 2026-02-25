@@ -4,9 +4,7 @@ import { z } from "zod";
 
 export const WordBreakdownItemSchema = z.object({
   word: z.string().min(1, "Word must not be empty"),
-  pinyin: z
-    .string()
-    .min(1, "Pinyin must not be empty"),
+  pinyin: z.string(),
   meaning: z.string().min(1, "Meaning must not be empty"),
 });
 
