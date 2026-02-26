@@ -46,6 +46,8 @@ model User {
   avatarUrl            String?
   googleId             String             @unique
   characterSet         CharacterSet       @default(TRADITIONAL)
+  targetLanguage       String             @default("zh")
+  languageVariant      String?
   subscriptionStatus   SubscriptionStatus @default(TRIAL)
   trialEndsAt          DateTime           @default(dbgenerated("now() + interval '7 days'"))
   stripeCustomerId     String?            @unique
@@ -97,8 +99,8 @@ model ReviewLog {
   userTranslation      String
   correctTranslation   String
   translationCorrect   Boolean
-  userPinyin           String
-  pinyinCorrect        Boolean
+  userPinyin           String?
+  pinyinCorrect        Boolean?
   overallRating        Rating
   reviewedAt           DateTime  @default(now())
   responseTimeMs       Int?

@@ -95,7 +95,7 @@ vi.mock("@/lib/db/queries", () => ({
 
 import { db } from "@/lib/db";
 import { POST as startPost } from "@/app/api/quiz/start/route";
-import { POST as checkPinyinPost } from "@/app/api/quiz/check-pinyin/route";
+import { POST as checkReadingPost } from "@/app/api/quiz/check-reading/route";
 import { POST as submitResultPost } from "@/app/api/quiz/submit-result/route";
 import { GET as todayStatsGet } from "@/app/api/quiz/today-stats/route";
 
@@ -177,45 +177,51 @@ describe("POST /api/quiz/start", () => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/quiz/check-pinyin
+// POST /api/quiz/check-reading
 // ---------------------------------------------------------------------------
 
-describe("POST /api/quiz/check-pinyin", () => {
-  it("returns correct: true for matching pinyin", async () => {
+describe("POST /api/quiz/check-reading", () => {
+  it("returns correct: true for matching reading", async () => {
     authenticatedSession();
+    mockDbUser.findUniqueOrThrow.mockResolvedValue({
+      targetLanguage: "zh",
+    });
     mockDbFlashcard.findFirst.mockResolvedValue({
       id: TEST_FLASHCARD_ID,
       pinyin: "ni3hao3",
       userId: TEST_USER_ID,
     });
 
-    const req = makeRequest("http://localhost/api/quiz/check-pinyin", {
+    const req = makeRequest("http://localhost/api/quiz/check-reading", {
       flashcardId: TEST_FLASHCARD_ID,
-      userPinyin: "ni3hao3",
+      userReading: "ni3hao3",
     });
 
-    const res = await checkPinyinPost(req as never);
+    const res = await checkReadingPost(req as never);
     const json = await res.json();
 
     expect(res.status).toBe(200);
     expect(json.correct).toBe(true);
-    expect(json.correctPinyin).toBe("ni3hao3");
+    expect(json.correctReading).toBe("ni3hao3");
   });
 
-  it("returns correct: false for incorrect pinyin", async () => {
+  it("returns correct: false for incorrect reading", async () => {
     authenticatedSession();
+    mockDbUser.findUniqueOrThrow.mockResolvedValue({
+      targetLanguage: "zh",
+    });
     mockDbFlashcard.findFirst.mockResolvedValue({
       id: TEST_FLASHCARD_ID,
       pinyin: "ni3hao3",
       userId: TEST_USER_ID,
     });
 
-    const req = makeRequest("http://localhost/api/quiz/check-pinyin", {
+    const req = makeRequest("http://localhost/api/quiz/check-reading", {
       flashcardId: TEST_FLASHCARD_ID,
-      userPinyin: "ni2hao3",
+      userReading: "ni2hao3",
     });
 
-    const res = await checkPinyinPost(req as never);
+    const res = await checkReadingPost(req as never);
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -224,29 +230,53 @@ describe("POST /api/quiz/check-pinyin", () => {
 
   it("returns 400 for invalid flashcardId", async () => {
     authenticatedSession();
-
-    const req = makeRequest("http://localhost/api/quiz/check-pinyin", {
-      flashcardId: "not-a-uuid",
-      userPinyin: "ni3hao3",
+    mockDbUser.findUniqueOrThrow.mockResolvedValue({
+      targetLanguage: "zh",
     });
 
-    const res = await checkPinyinPost(req as never);
+    const req = makeRequest("http://localhost/api/quiz/check-reading", {
+      flashcardId: "not-a-uuid",
+      userReading: "ni3hao3",
+    });
+
+    const res = await checkReadingPost(req as never);
     const json = await res.json();
 
     expect(res.status).toBe(400);
     expect(json.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("returns 404 when flashcard not found", async () => {
+  it("returns 400 for phonetic language", async () => {
     authenticatedSession();
-    mockDbFlashcard.findFirst.mockResolvedValue(null);
-
-    const req = makeRequest("http://localhost/api/quiz/check-pinyin", {
-      flashcardId: TEST_FLASHCARD_ID,
-      userPinyin: "ni3hao3",
+    mockDbUser.findUniqueOrThrow.mockResolvedValue({
+      targetLanguage: "es",
     });
 
-    const res = await checkPinyinPost(req as never);
+    const req = makeRequest("http://localhost/api/quiz/check-reading", {
+      flashcardId: TEST_FLASHCARD_ID,
+      userReading: "hola",
+    });
+
+    const res = await checkReadingPost(req as never);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error.code).toBe("INVALID_OPERATION");
+  });
+
+  it("returns 404 when flashcard not found", async () => {
+    authenticatedSession();
+    mockDbUser.findUniqueOrThrow.mockResolvedValue({
+      targetLanguage: "zh",
+    });
+    mockDbFlashcard.findFirst.mockResolvedValue(null);
+
+    const req = makeRequest("http://localhost/api/quiz/check-reading", {
+      flashcardId: TEST_FLASHCARD_ID,
+      userReading: "ni3hao3",
+    });
+
+    const res = await checkReadingPost(req as never);
     const json = await res.json();
 
     expect(res.status).toBe(404);
@@ -266,8 +296,8 @@ describe("POST /api/quiz/submit-result", () => {
     userTranslation: "Hello world",
     correctTranslation: "Hello world",
     translationCorrect: true,
-    userPinyin: "ni3hao3",
-    pinyinCorrect: true,
+    userReading: "ni3hao3",
+    readingCorrect: true,
     overallRating: "GOOD",
     responseTimeMs: 5000,
   };

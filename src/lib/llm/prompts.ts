@@ -3,24 +3,68 @@
  *
  * System messages define the LLM's persona and rules.
  * User message builders interpolate runtime data into the templates.
+ *
+ * All prompts support multi-language via a LanguagePromptContext parameter.
  */
+
+import type { LanguageConfig } from "@/lib/languages";
+
+// ---------------------------------------------------------------------------
+// Shared language context type
+// ---------------------------------------------------------------------------
+
+export interface LanguagePromptContext {
+  /** The full language config */
+  language: LanguageConfig;
+  /** The language variant (e.g. "traditional", "simplified") or null */
+  variant: string | null;
+}
 
 // ---------------------------------------------------------------------------
 // Call 1: Sentence Generation
 // ---------------------------------------------------------------------------
 
-export function sentenceGenerationSystemMessage(characterSet: string): string {
-  return `You are a Mandarin Chinese language tutor that generates natural example sentences for vocabulary study.
+export function sentenceGenerationSystemMessage(
+  characterSet: string,
+  langCtx?: LanguagePromptContext,
+): string {
+  // Default to Chinese behavior for backward compatibility
+  const lang = langCtx?.language;
+  const languageName = lang?.name ?? "Mandarin Chinese";
+  const variant = langCtx?.variant ?? characterSet;
+  const needsReading = lang?.needsReading ?? true;
+  const readingLabel = lang?.readingLabel ?? "Pinyin";
+  const isPhoneticWithWhitespace = lang
+    ? (lang.isPhonetic && lang.hasWhitespaceWordSegmentation)
+    : false;
+
+  // Build character set / variant instructions for Chinese
+  const isChinese = !lang || lang.code === "zh";
+  const variantInstructions = isChinese
+    ? `1. Use ONLY ${variant} Chinese characters. If "traditional", use 繁體字 exclusively. If "simplified", use 简体字 exclusively. Never mix character sets.
+2. Write pinyin in numbered tone format: ni3hao3, NOT nǐhǎo.
+3. The neutral tone is tone 0 (e.g., 嗎 = ma0, 的 = de0).`
+    : `1. Generate sentences in ${languageName}.${lang?.code === "ja" ? " Use appropriate kanji, hiragana, and katakana." : ""}
+2.${needsReading ? ` Provide ${readingLabel} for each word in the breakdown.` : " No separate reading/pronunciation field is needed."}
+3. Use natural, contemporary ${languageName}.`;
+
+  const readingField = needsReading
+    ? `"${readingLabel.toLowerCase()}": "<${readingLabel}>", `
+    : "";
+
+  const breakdownNote = isPhoneticWithWhitespace
+    ? "The wordBreakdown must list each word in the sentence, in order."
+    : "The wordBreakdown must segment the sentence into individual words (not characters, unless the word IS a single character). Every word in the sentence must appear in the breakdown, in order. Include punctuation marks as their own entries with " + (needsReading ? `${readingLabel.toLowerCase()} ""` : "no special handling") + " and meaning \"punctuation\".";
+
+  return `You are a ${languageName} language tutor that generates natural example sentences for vocabulary study.
 
 Rules you MUST follow:
-1. Use ONLY ${characterSet} Chinese characters. If "traditional", use 繁體字 exclusively. If "simplified", use 简体字 exclusively. Never mix character sets.
-2. Write pinyin in numbered tone format: ni3hao3, NOT nǐhǎo.
-3. The neutral tone is tone 0 (e.g., 嗎 = ma0, 的 = de0).
+${variantInstructions}
 4. Generate exactly ONE sentence that uses the target word naturally.
 5. The sentence should sound like something a native speaker would actually say — conversational and natural, not textbook-stilted.
-6. Match the sentence complexity to the target word itself. If the word is basic (e.g. 你, 吃), use a simple sentence. If the word is advanced (e.g. 推動, 反映), use a more sophisticated sentence with appropriate context. The rest of the vocabulary in the sentence should be simpler than the target word.
+6. Match the sentence complexity to the target word itself. If the word is basic, use a simple sentence. If the word is advanced, use a more sophisticated sentence with appropriate context. The rest of the vocabulary in the sentence should be simpler than the target word.
 7. Wrap the target word in <mark> tags in the sentenceWithHighlight field.
-8. The wordBreakdown must segment the sentence into individual words (not characters, unless the word IS a single character). Every word in the sentence must appear in the breakdown, in order. Include punctuation marks (。，！？、；：) as their own entries with pinyin "" and meaning "punctuation".
+8. ${breakdownNote}
 9. The translation should be natural English, not word-for-word.
 10. Each wordBreakdown "meaning" must be a single short English gloss — one or two words a learner would type (e.g. "to eat", "happy", "computer"). Never list multiple definitions separated by semicolons, slashes, or commas.
 
@@ -32,20 +76,39 @@ export function sentenceGenerationUserMessage(params: {
   pinyin: string;
   meaning: string;
   characterSet: string;
+  langCtx?: LanguagePromptContext;
 }): string {
-  return `Generate a sentence using this word. Use ${params.characterSet} Chinese characters.
+  const lang = params.langCtx?.language;
+  const languageName = lang?.name ?? "Chinese";
+  const variant = params.langCtx?.variant ?? params.characterSet;
+  const needsReading = lang?.needsReading ?? true;
+  const readingLabel = lang?.readingLabel ?? "Pinyin";
+  const isChinese = !lang || lang.code === "zh";
 
-Word: ${params.targetWord}
-Pinyin: ${params.pinyin}
+  const readingLine = needsReading
+    ? `\n${readingLabel}: ${params.pinyin}`
+    : "";
+
+  const sentenceLabel = isChinese
+    ? `${variant} Chinese`
+    : languageName;
+
+  const readingJsonField = needsReading
+    ? `, "${readingLabel.toLowerCase()}": "<${readingLabel.toLowerCase()}>"`
+    : "";
+
+  return `Generate a sentence using this word.${isChinese ? ` Use ${variant} Chinese characters.` : ` Use ${languageName}.`}
+
+Word: ${params.targetWord}${readingLine}
 Meaning: ${params.meaning}
 
 Respond with JSON in this exact format:
 {
-  "sentence": "<full sentence in ${params.characterSet} Chinese>",
+  "sentence": "<full sentence in ${sentenceLabel}>",
   "sentenceWithHighlight": "<same sentence with target word wrapped in <mark> tags>",
   "translation": "<natural English translation>",
   "wordBreakdown": [
-    { "word": "<Chinese word>", "pinyin": "<numbered pinyin>", "meaning": "<single short English gloss>" }
+    { "word": "<${languageName} word>"${readingJsonField}, "meaning": "<single short English gloss>" }
   ]
 }`;
 }
@@ -54,13 +117,19 @@ Respond with JSON in this exact format:
 // Call 2: Translation Checking
 // ---------------------------------------------------------------------------
 
-export const TRANSLATION_CHECK_SYSTEM_MESSAGE = `You are a Mandarin Chinese language tutor grading a student's English translation of a Chinese sentence.
+export function translationCheckSystemMessage(
+  langCtx?: LanguagePromptContext,
+): string {
+  const lang = langCtx?.language;
+  const languageName = lang?.name ?? "Mandarin Chinese";
+
+  return `You are a ${languageName} language tutor grading a student's English translation of a ${languageName} sentence.
 
 Grading rules:
 1. Be LENIENT on style, word choice, and phrasing. Accept reasonable synonyms and paraphrasing.
 2. Be STRICT on meaning. The translation must convey the same core meaning as the original sentence.
 3. Be ESPECIALLY strict about the target word. The student must demonstrate they understood what the target word means in this context.
-4. If the student's translation is in Chinese or any language other than English, mark it incorrect and note the issue in the explanation.
+4. If the student's translation is in ${languageName} or any language other than English, mark it incorrect and note the issue in the explanation.
 5. Minor grammatical errors in the English are acceptable if the meaning is clear.
 6. If the translation is partially correct (gets the gist but misses the target word's nuance), mark it incorrect but give an encouraging explanation.
 
@@ -68,9 +137,13 @@ Set "correct" to true only if:
 - The overall sentence meaning is preserved (doesn't need to be word-for-word)
 - The target word's meaning is correctly reflected in the translation
 
-Always provide a "suggestedTranslation" — this should be the most natural, accurate English rendering of the Chinese sentence.
+Always provide a "suggestedTranslation" — this should be the most natural, accurate English rendering of the ${languageName} sentence.
 
 Respond with valid JSON only. No markdown, no code fences, no extra text.`;
+}
+
+/** @deprecated Use translationCheckSystemMessage() instead */
+export const TRANSLATION_CHECK_SYSTEM_MESSAGE = translationCheckSystemMessage();
 
 export function translationCheckUserMessage(params: {
   chineseSentence: string;
@@ -104,14 +177,30 @@ Respond with JSON in this exact format:
 // Call 3: AI Card Creation
 // ---------------------------------------------------------------------------
 
-export function aiCardCreationSystemMessage(characterSet: string): string {
-  return `You are a Mandarin Chinese dictionary and flashcard assistant.
+export function aiCardCreationSystemMessage(
+  characterSet: string,
+  langCtx?: LanguagePromptContext,
+): string {
+  const lang = langCtx?.language;
+  const languageName = lang?.name ?? "Mandarin Chinese";
+  const isChinese = !lang || lang.code === "zh";
+  const needsReading = lang?.needsReading ?? true;
+  const readingLabel = lang?.readingLabel ?? "Pinyin";
 
-Rules you MUST follow:
-1. Use ONLY ${characterSet} Chinese characters. If "traditional", use 繁體字 exclusively. If "simplified", use 简体字 exclusively. Never mix character sets.
+  const variantInstructions = isChinese
+    ? `1. Use ONLY ${characterSet} Chinese characters. If "traditional", use 繁體字 exclusively. If "simplified", use 简体字 exclusively. Never mix character sets.
 2. Write pinyin in numbered tone format: xue2xi2, NOT xuéxí. The neutral tone is tone 0.
 3. If the user provides English, find the single most common/useful Chinese equivalent. Prefer the word a native Mandarin speaker would most naturally use.
-4. If the user provides Chinese in a different character set than requested, convert to the requested set.
+4. If the user provides Chinese in a different character set than requested, convert to the requested set.`
+    : `1. Generate ${languageName} words and sentences.${lang?.code === "ja" ? " Use appropriate kanji, hiragana, and katakana." : ""}
+2.${needsReading ? ` Provide ${readingLabel} for each word.` : " No separate pronunciation field is needed."}
+3. If the user provides English, find the single most common/useful ${languageName} equivalent.
+4. Use natural, contemporary ${languageName}.`;
+
+  return `You are a ${languageName} dictionary and flashcard assistant.
+
+Rules you MUST follow:
+${variantInstructions}
 5. The "meaning" field should contain ONLY the single most common English meaning — a short phrase a learner would type (e.g. "to study", "happy", "computer"). Never list multiple definitions separated by semicolons, slashes, or commas. If context is ambiguous, pick the most frequent meaning.
 6. The example sentence should be simple and natural — something a textbook or native speaker would use.
 7. The example sentence MUST use the target word.
@@ -125,23 +214,41 @@ export function aiCardCreationUserMessage(params: {
   inputLanguage: string;
   characterSet: string;
   contextSentence?: string | null;
+  langCtx?: LanguagePromptContext;
 }): string {
+  const lang = params.langCtx?.language;
+  const languageName = lang?.name ?? "Chinese";
+  const isChinese = !lang || lang.code === "zh";
+  const needsReading = lang?.needsReading ?? true;
+  const readingLabel = lang?.readingLabel ?? "Pinyin";
+  const variant = params.langCtx?.variant ?? params.characterSet;
+
   const contextLine = params.contextSentence
     ? `Context: ${params.contextSentence}\n`
+    : "";
+
+  const wordLabel = isChinese
+    ? `${variant} Chinese`
+    : languageName;
+
+  const readingJsonField = needsReading
+    ? `\n  "${readingLabel.toLowerCase()}": "<${readingLabel.toLowerCase()}>",`
+    : "";
+
+  const charSetLine = isChinese
+    ? `Character set: ${variant}\n`
     : "";
 
   return `Create a flashcard for:
 
 Input: ${params.input}
 Input language: ${params.inputLanguage}
-Character set: ${params.characterSet}
-${contextLine}
+${charSetLine}${contextLine}
 Respond with JSON in this exact format:
 {
-  "word": "<the word in ${params.characterSet} Chinese>",
-  "pinyin": "<numbered pinyin>",
+  "word": "<the word in ${wordLabel}>",${readingJsonField}
   "meaning": "<single primary English meaning>",
-  "exampleSentence": "<example sentence in ${params.characterSet} Chinese using the word>",
+  "exampleSentence": "<example sentence in ${wordLabel} using the word>",
   "exampleTranslation": "<English translation of example sentence>"
 }`;
 }

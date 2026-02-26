@@ -17,7 +17,8 @@ import type { FlashcardResponse } from "@/types";
 
 const quickSaveSchema = z.object({
   word: z.string().min(1, "word is required"),
-  pinyin: z.string().min(1, "pinyin is required"),
+  pinyin: z.string().optional().default(""),
+  reading: z.string().optional(),
   englishMeaning: z.string().min(1, "englishMeaning is required").max(500),
 });
 
@@ -75,7 +76,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { word, pinyin, englishMeaning } = parsed.data;
+    const { word, pinyin, reading, englishMeaning } = parsed.data;
+    const effectiveReading = reading ?? pinyin ?? "";
 
     // Check for duplicate — if exists, return the existing card with isDuplicate flag
     const existing = await db.flashcard.findUnique({
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId,
         word,
-        pinyin,
+        pinyin: effectiveReading,
         englishMeaning,
         difficulty: 0,
         stability: 0,

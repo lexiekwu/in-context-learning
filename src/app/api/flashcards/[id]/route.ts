@@ -25,6 +25,7 @@ const updateFlashcardSchema = z
   .object({
     word: z.string().min(1).optional(),
     pinyin: z.string().min(1).optional(),
+    reading: z.string().min(1).optional(),
     englishMeaning: z.string().min(1).max(500).optional(),
     exampleSentence: z.string().nullable().optional(),
   })
@@ -106,7 +107,11 @@ export async function PUT(
       throw notFoundError("Flashcard", id);
     }
 
-    const data = parsed.data;
+    const { reading, ...restData } = parsed.data;
+    // Map "reading" to the DB "pinyin" column if provided
+    const data = reading !== undefined
+      ? { ...restData, pinyin: reading }
+      : restData;
 
     // If word is being changed, check for duplicate
     if (data.word && data.word !== existing.word) {

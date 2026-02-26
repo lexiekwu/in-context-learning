@@ -14,7 +14,8 @@ const bulkCreateSchema = z.object({
     .array(
       z.object({
         word: z.string().min(1),
-        pinyin: z.string().min(1),
+        pinyin: z.string().optional().default(""),
+        reading: z.string().optional(),
         englishMeaning: z.string().min(1).max(500),
       })
     )
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
       data: parsed.data.cards.map((card) => ({
         userId,
         word: card.word,
-        pinyin: card.pinyin,
+        pinyin: card.reading ?? card.pinyin ?? "",
         englishMeaning: card.englishMeaning,
         difficulty: 0,
         stability: 0,

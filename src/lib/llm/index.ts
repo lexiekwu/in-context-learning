@@ -4,9 +4,11 @@ export type { CallLLMOptions } from "./call";
 export { sanitizeForPrompt } from "./sanitize";
 export {
   SentenceGenerationResponseSchema,
+  SentenceGenerationPhoneticResponseSchema,
   TranslationCheckResponseSchema,
   AICardCreationResponseSchema,
   WordBreakdownItemSchema,
+  WordBreakdownItemPhoneticSchema,
 } from "./schemas";
 export type {
   SentenceGenerationResponse,
@@ -17,7 +19,9 @@ export {
   sentenceGenerationSystemMessage,
   sentenceGenerationUserMessage,
   TRANSLATION_CHECK_SYSTEM_MESSAGE,
+  translationCheckSystemMessage,
   translationCheckUserMessage,
   aiCardCreationSystemMessage,
   aiCardCreationUserMessage,
 } from "./prompts";
+export type { LanguagePromptContext } from "./prompts";
