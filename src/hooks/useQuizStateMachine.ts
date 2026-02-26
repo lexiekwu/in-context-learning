@@ -20,11 +20,11 @@ export type QuizState =
   | "TRANSLATION_CORRECT"
   | "TRANSLATION_INCORRECT"
   | "RETYPING_TRANSLATION"
-  | "PINYIN_INPUT"
-  | "VERIFY_PINYIN"
-  | "PINYIN_CORRECT"
-  | "PINYIN_INCORRECT"
-  | "RETYPING_PINYIN"
+  | "READING_INPUT"
+  | "VERIFY_READING"
+  | "READING_CORRECT"
+  | "READING_INCORRECT"
+  | "RETYPING_READING"
   | "CARD_COMPLETE"
   | "SESSION_SUMMARY";
 
@@ -45,9 +45,9 @@ export interface CurrentCardData {
   flashcard: NonNullable<NextCardResponse["flashcard"]>;
   sentence: GenerateSentenceResponse | null;
   translationResult: CheckTranslationResponse | null;
-  pinyinResult: CheckPinyinResponse | null;
+  readingResult: CheckPinyinResponse | null;
   userTranslation: string;
-  userPinyin: string;
+  userReading: string;
   scheduleResult: FlashcardScheduleResponse | null;
   currentCardCorrect: boolean;
   responseStartTime: number;
@@ -63,12 +63,15 @@ export interface QuizStateMachine {
   error: string | null;
   subscriptionBlocked: boolean;
 
+  // Language info
+  isPhonetic: boolean;
+
   // Actions
   loadNextCard: () => Promise<void>;
   submitTranslation: (translation: string) => Promise<void>;
   retypeTranslation: (translation: string) => boolean;
-  submitPinyin: (pinyin: string) => Promise<void>;
-  retypePinyin: (pinyin: string) => boolean;
+  submitReading: (reading: string) => Promise<void>;
+  retypeReading: (reading: string) => boolean;
   advanceFromCorrect: () => void;
   advanceFromCardComplete: () => void;
   dismissError: () => void;
@@ -85,9 +88,21 @@ const CJK_REGEX =
   /[\u4E00-\u9FFF\u3400-\u4DBF\u{20000}-\u{2A6DF}\u{2A700}-\u{2B73F}\u{2B740}-\u{2B81F}\u{2B820}-\u{2CEAF}\u{2CEB0}-\u{2EBEF}\u{30000}-\u{3134F}]/gu;
 
 // ---------------------------------------------------------------------------
+// Hook options
+// ---------------------------------------------------------------------------
+export interface QuizStateMachineOptions {
+  /** If true, the language is phonetic (e.g. Spanish, French) and the reading
+   *  step (pinyin input) is skipped entirely. Defaults to false (Chinese). */
+  isPhonetic?: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Hook implementation
 // ---------------------------------------------------------------------------
-export function useQuizStateMachine(): QuizStateMachine {
+export function useQuizStateMachine(
+  options: QuizStateMachineOptions = {},
+): QuizStateMachine {
+  const { isPhonetic = false } = options;
   const [state, setState] = useState<QuizState>("CARD_START");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [card, setCard] = useState<CurrentCardData | null>(null);
@@ -182,9 +197,9 @@ export function useQuizStateMachine(): QuizStateMachine {
           flashcard: nextCard.flashcard,
           sentence: sentenceRes,
           translationResult: null,
-          pinyinResult: null,
+          readingResult: null,
           userTranslation: "",
-          userPinyin: "",
+          userReading: "",
           scheduleResult: null,
           currentCardCorrect: true,
           responseStartTime: Date.now(),
@@ -241,9 +256,9 @@ export function useQuizStateMachine(): QuizStateMachine {
             flashcard: prefetched.flashcard,
             sentence: prefetched.sentence,
             translationResult: null,
-            pinyinResult: null,
+            readingResult: null,
             userTranslation: "",
-            userPinyin: "",
+            userReading: "",
             scheduleResult: null,
             currentCardCorrect: true,
             responseStartTime: Date.now(),
@@ -269,9 +284,9 @@ export function useQuizStateMachine(): QuizStateMachine {
         flashcard: nextCard.flashcard,
         sentence: sentenceRes,
         translationResult: null,
-        pinyinResult: null,
+        readingResult: null,
         userTranslation: "",
-        userPinyin: "",
+        userReading: "",
         scheduleResult: null,
         currentCardCorrect: true,
         responseStartTime: Date.now(),
@@ -328,8 +343,14 @@ export function useQuizStateMachine(): QuizStateMachine {
         );
 
         if (result.correct) {
-          setState("TRANSLATION_CORRECT");
-          setState("PINYIN_INPUT");
+          if (isPhonetic) {
+            // Phonetic languages skip the reading step entirely
+            setState("TRANSLATION_CORRECT");
+            submitCardResult(true);
+          } else {
+            setState("TRANSLATION_CORRECT");
+            setState("READING_INPUT");
+          }
         } else {
           setState("TRANSLATION_INCORRECT");
         }
@@ -340,7 +361,8 @@ export function useQuizStateMachine(): QuizStateMachine {
         setState("AWAITING_TRANSLATION");
       }
     },
-    [card],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [card, isPhonetic],
   );
 
   // -------------------------------------------------------------------------
@@ -358,28 +380,31 @@ export function useQuizStateMachine(): QuizStateMachine {
 
       const userNorm = normalize(translation);
       const variants = card.flashcard.englishMeaning.split(/[\/;,]/);
-      for (const variant of variants) {
-        if (normalize(variant) === userNorm) {
-          setState("PINYIN_INPUT");
-          return true;
+      const matched = variants.some((v) => normalize(v) === userNorm)
+        || normalize(card.flashcard.englishMeaning) === userNorm;
+
+      if (matched) {
+        if (isPhonetic) {
+          // Phonetic languages skip the reading step entirely
+          submitCardResult(false);
+        } else {
+          setState("READING_INPUT");
         }
-      }
-      if (normalize(card.flashcard.englishMeaning) === userNorm) {
-        setState("PINYIN_INPUT");
         return true;
       }
       return false;
     },
-    [card],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [card, isPhonetic],
   );
 
   // -------------------------------------------------------------------------
-  // submitPinyin
+  // submitReading (pinyin for Chinese, skip for phonetic languages)
   // -------------------------------------------------------------------------
-  const submitPinyin = useCallback(
-    async (pinyin: string) => {
+  const submitReading = useCallback(
+    async (reading: string) => {
       if (!card) return;
-      const trimmed = pinyin.trim();
+      const trimmed = reading.trim();
       if (!trimmed) return;
 
       if (TONE_MARK_REGEX.test(trimmed)) {
@@ -398,8 +423,8 @@ export function useQuizStateMachine(): QuizStateMachine {
 
       try {
         setError(null);
-        setState("VERIFY_PINYIN");
-        setCard((prev) => (prev ? { ...prev, userPinyin: trimmed } : prev));
+        setState("VERIFY_READING");
+        setCard((prev) => (prev ? { ...prev, userReading: trimmed } : prev));
 
         const result = await api.checkPinyin(card.flashcard.id, trimmed);
 
@@ -407,7 +432,7 @@ export function useQuizStateMachine(): QuizStateMachine {
           prev
             ? {
                 ...prev,
-                pinyinResult: result,
+                readingResult: result,
                 currentCardCorrect: prev.currentCardCorrect && result.correct,
               }
             : prev,
@@ -416,13 +441,13 @@ export function useQuizStateMachine(): QuizStateMachine {
         if (result.correct) {
           submitCardResult(true);
         } else {
-          setState("PINYIN_INCORRECT");
+          setState("READING_INCORRECT");
         }
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to check pinyin",
+          err instanceof Error ? err.message : "Failed to check reading",
         );
-        setState("PINYIN_INPUT");
+        setState("READING_INPUT");
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -430,16 +455,16 @@ export function useQuizStateMachine(): QuizStateMachine {
   );
 
   // -------------------------------------------------------------------------
-  // retypePinyin
+  // retypeReading (pinyin retype for Chinese)
   // -------------------------------------------------------------------------
-  const retypePinyin = useCallback(
-    (pinyin: string): boolean => {
-      if (!card?.pinyinResult) return false;
-      setState("RETYPING_PINYIN");
+  const retypeReading = useCallback(
+    (reading: string): boolean => {
+      if (!card?.readingResult) return false;
+      setState("RETYPING_READING");
       const normalize = (s: string) =>
         s.trim().toLowerCase().replace(/[\s\-']/g, "");
-      const userNorm = normalize(pinyin);
-      const expectedNorm = normalize(card.pinyinResult.expectedPinyin);
+      const userNorm = normalize(reading);
+      const expectedNorm = normalize(card.readingResult.expectedPinyin);
       if (userNorm === expectedNorm) {
         submitCardResult(false);
         return true;
@@ -457,14 +482,17 @@ export function useQuizStateMachine(): QuizStateMachine {
   cardRef.current = card;
 
   const submitCardResult = useCallback(
-    async (fromCorrectPinyin: boolean) => {
+    async (fromCorrectReading: boolean) => {
       const currentCard = cardRef.current;
       if (!currentCard || !sessionId || !currentCard.sentence) return;
       try {
-        const isCorrect = fromCorrectPinyin
+        // For phonetic languages: GOOD if translation correct on first try, else AGAIN.
+        // For non-phonetic (Chinese): GOOD if both translation AND reading correct on first try.
+        const cardCorrect = isPhonetic
           ? currentCard.currentCardCorrect
-          : false;
-        const cardCorrect = isCorrect && currentCard.currentCardCorrect;
+          : fromCorrectReading
+            ? currentCard.currentCardCorrect
+            : false;
         const rating = cardCorrect ? "GOOD" : "AGAIN";
         const responseTimeMs = Date.now() - currentCard.responseStartTime;
 
@@ -492,8 +520,8 @@ export function useQuizStateMachine(): QuizStateMachine {
           userTranslation: currentCard.userTranslation || "no translation",
           correctTranslation: currentCard.sentence.translation,
           translationCorrect: currentCard.translationResult?.correct ?? false,
-          userPinyin: currentCard.userPinyin || "unknown",
-          pinyinCorrect: currentCard.pinyinResult?.correct ?? false,
+          userPinyin: currentCard.userReading || (isPhonetic ? "n/a" : "unknown"),
+          pinyinCorrect: isPhonetic ? true : (currentCard.readingResult?.correct ?? false),
           responseTimeMs,
         }).then((result) => {
           const apiResult = result as unknown as {
@@ -526,7 +554,7 @@ export function useQuizStateMachine(): QuizStateMachine {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sessionId, loadNextCard],
+    [sessionId, loadNextCard, isPhonetic],
   );
 
   // -------------------------------------------------------------------------
@@ -534,9 +562,14 @@ export function useQuizStateMachine(): QuizStateMachine {
   // -------------------------------------------------------------------------
   const advanceFromCorrect = useCallback(() => {
     if (state === "TRANSLATION_CORRECT") {
-      setState("PINYIN_INPUT");
+      if (isPhonetic) {
+        submitCardResult(true);
+      } else {
+        setState("READING_INPUT");
+      }
     }
-  }, [state]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, isPhonetic]);
 
   // -------------------------------------------------------------------------
   // advanceFromCardComplete
@@ -558,11 +591,12 @@ export function useQuizStateMachine(): QuizStateMachine {
     dailyStats,
     error,
     subscriptionBlocked,
+    isPhonetic,
     loadNextCard,
     submitTranslation,
     retypeTranslation,
-    submitPinyin,
-    retypePinyin,
+    submitReading,
+    retypeReading,
     advanceFromCorrect,
     advanceFromCardComplete,
     dismissError,
