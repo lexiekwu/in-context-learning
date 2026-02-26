@@ -18,8 +18,12 @@ const requestSchema = z.object({
   userTranslation: z.string().min(1, "userTranslation is required"),
   correctTranslation: z.string().min(1, "correctTranslation is required"),
   translationCorrect: z.boolean(),
-  userPinyin: z.string().min(1, "userPinyin is required"),
-  pinyinCorrect: z.boolean(),
+  // Reading fields are optional — absent for phonetic languages
+  userReading: z.string().optional().nullable(),
+  readingCorrect: z.boolean().optional().nullable(),
+  // Legacy pinyin fields for backward compatibility
+  userPinyin: z.string().optional().nullable(),
+  pinyinCorrect: z.boolean().optional().nullable(),
   overallRating: z.enum(["GOOD", "AGAIN"]),
   responseTimeMs: z.number().int().positive().optional(),
 });
@@ -30,9 +34,9 @@ const requestSchema = z.object({
  * Submits the final result for a card review. Updates FSRS scheduling state,
  * creates a ReviewLog, and increments StudySession counters.
  *
- * Rating logic (from spec):
- *   - Both translation and pinyin correct on first attempt -> GOOD
- *   - Either incorrect -> AGAIN
+ * Rating logic:
+ *   - For languages with readings: Both translation and reading correct -> GOOD, else AGAIN
+ *   - For phonetic languages: Translation correct -> GOOD, else AGAIN
  */
 export async function POST(request: NextRequest) {
   try {
@@ -63,11 +67,17 @@ export async function POST(request: NextRequest) {
       userTranslation,
       correctTranslation,
       translationCorrect,
+      userReading,
+      readingCorrect,
       userPinyin,
       pinyinCorrect,
       overallRating,
       responseTimeMs,
     } = parsed.data;
+
+    // Resolve reading fields: prefer new names, fall back to legacy pinyin names
+    const effectiveUserReading = userReading ?? userPinyin ?? null;
+    const effectiveReadingCorrect = readingCorrect ?? pinyinCorrect ?? null;
 
     // Verify the session belongs to this user
     const studySession = await db.studySession.findUnique({
@@ -115,8 +125,8 @@ export async function POST(request: NextRequest) {
           userTranslation,
           correctTranslation,
           translationCorrect,
-          userPinyin,
-          pinyinCorrect,
+          userPinyin: effectiveUserReading,
+          pinyinCorrect: effectiveReadingCorrect,
           overallRating,
           reviewedAt: now,
           responseTimeMs: responseTimeMs ?? null,

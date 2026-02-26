@@ -3,14 +3,21 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/rate-limit";
-
-const VALID_LANGUAGES = ["zh", "ja", "ko", "es", "fr", "de"] as const;
+import { getSupportedLanguageCodes } from "@/lib/languages";
 
 const updateSettingsSchema = z.object({
   characterSet: z.enum(["TRADITIONAL", "SIMPLIFIED"]).optional(),
-  targetLanguage: z.enum(VALID_LANGUAGES).optional(),
+  targetLanguage: z.string().optional(),
   languageVariant: z.string().nullable().optional(),
-});
+}).refine(
+  (data) => {
+    if (data.targetLanguage) {
+      return getSupportedLanguageCodes().includes(data.targetLanguage);
+    }
+    return true;
+  },
+  { message: "Unsupported target language", path: ["targetLanguage"] }
+);
 
 /**
  * GET /api/user/settings
@@ -29,7 +36,6 @@ export async function GET() {
   const user = await db.user.findUnique({
     where: { id: session.user.id },
     select: {
-      characterSet: true,
       targetLanguage: true,
       languageVariant: true,
     },
@@ -40,7 +46,6 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    characterSet: user.characterSet,
     targetLanguage: user.targetLanguage,
     languageVariant: user.languageVariant,
   });
@@ -74,11 +79,7 @@ export async function PUT(request: Request) {
     );
   }
 
-  // Build update data from provided fields
   const data: Record<string, unknown> = {};
-  if (parsed.data.characterSet !== undefined) {
-    data.characterSet = parsed.data.characterSet;
-  }
   if (parsed.data.targetLanguage !== undefined) {
     data.targetLanguage = parsed.data.targetLanguage;
   }
@@ -97,14 +98,12 @@ export async function PUT(request: Request) {
     where: { id: session.user.id },
     data,
     select: {
-      characterSet: true,
       targetLanguage: true,
       languageVariant: true,
     },
   });
 
   return NextResponse.json({
-    characterSet: updated.characterSet,
     targetLanguage: updated.targetLanguage,
     languageVariant: updated.languageVariant,
   });

@@ -3,8 +3,6 @@
 import { useSession, signOut } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
 
-type CharacterSet = "TRADITIONAL" | "SIMPLIFIED";
-
 const LANGUAGES = [
   { code: "zh", name: "Chinese", nativeName: "中文" },
   { code: "ja", name: "Japanese", nativeName: "日本語" },
@@ -32,7 +30,6 @@ export default function SettingsPage() {
   const { data: session } = useSession();
   const [targetLanguage, setTargetLanguage] = useState("zh");
   const [languageVariant, setLanguageVariant] = useState<string | null>("TRADITIONAL");
-  const [characterSet, setCharacterSet] = useState<CharacterSet>("TRADITIONAL");
   const [saving, setSaving] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [message, setMessage] = useState<{
@@ -52,7 +49,6 @@ export default function SettingsPage() {
         const res = await fetch("/api/user/settings");
         if (res.ok) {
           const data = await res.json();
-          setCharacterSet(data.characterSet ?? "TRADITIONAL");
           setTargetLanguage(data.targetLanguage ?? "zh");
           setSavedLanguage(data.targetLanguage ?? "zh");
           setLanguageVariant(data.languageVariant ?? (data.targetLanguage === "zh" || !data.targetLanguage ? "TRADITIONAL" : null));
@@ -69,7 +65,6 @@ export default function SettingsPage() {
   async function saveSettings(updates: {
     targetLanguage?: string;
     languageVariant?: string | null;
-    characterSet?: CharacterSet;
   }) {
     setSaving(true);
     setMessage(null);
@@ -119,36 +114,15 @@ export default function SettingsPage() {
     const newVariant = variants ? variants.options[0].value : null;
     setLanguageVariant(newVariant);
 
-    // Also sync characterSet for Chinese
-    const newCharacterSet: CharacterSet =
-      newLanguageCode === "zh" ? ((newVariant as CharacterSet) ?? "TRADITIONAL") : characterSet;
-    if (newLanguageCode === "zh") {
-      setCharacterSet(newCharacterSet);
-    }
-
     saveSettings({
       targetLanguage: newLanguageCode,
       languageVariant: newVariant,
-      characterSet: newCharacterSet,
     });
   }
 
   function handleVariantChange(newVariant: string) {
     setLanguageVariant(newVariant);
-
-    // Keep characterSet in sync for Chinese
-    const updates: {
-      languageVariant: string;
-      characterSet?: CharacterSet;
-    } = { languageVariant: newVariant };
-
-    if (targetLanguage === "zh") {
-      const newCharSet = newVariant as CharacterSet;
-      setCharacterSet(newCharSet);
-      updates.characterSet = newCharSet;
-    }
-
-    saveSettings(updates);
+    saveSettings({ languageVariant: newVariant });
   }
 
   function dismissWarning() {

@@ -42,9 +42,11 @@ const listQuerySchema = z.object({
 
 const createFlashcardSchema = z.object({
   word: z.string().min(1, "word is required"),
-  pinyin: z.string().min(1, "pinyin is required"),
+  pinyin: z.string().optional().default(""),
+  reading: z.string().optional(),
   englishMeaning: z.string().min(1, "englishMeaning is required").max(500),
   exampleSentence: z.string().optional(),
+  language: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -192,7 +194,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { word, pinyin, englishMeaning, exampleSentence } = parsed.data;
+    const { word, pinyin, reading, englishMeaning, exampleSentence } = parsed.data;
+    // Use reading field if provided, fall back to pinyin for backward compat
+    const effectiveReading = reading ?? pinyin ?? "";
 
     // Check for duplicate
     const existing = await db.flashcard.findUnique({
@@ -208,7 +212,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId,
         word,
-        pinyin,
+        pinyin: effectiveReading,
         englishMeaning,
         exampleSentence: exampleSentence ?? null,
         difficulty: 0,

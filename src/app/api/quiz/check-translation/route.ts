@@ -9,13 +9,15 @@ import {
   validationError,
   notFoundError,
 } from "@/lib/errors";
+import { getLanguageConfig } from "@/lib/languages";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 // ---------------------------------------------------------------------------
 // LLM prompt — focused narrowly on target word understanding
 // ---------------------------------------------------------------------------
 
-const SYSTEM_MESSAGE = `You are grading a Mandarin learner's English translation of a Chinese sentence.
+function buildSystemMessage(languageName: string): string {
+  return `You are grading a ${languageName} learner's English translation of a ${languageName} sentence.
 
 Your ONLY job: decide if the student understood the meaning of the **target word** based on their translation.
 
@@ -26,15 +28,17 @@ Rules:
 
 Respond with JSON: {"correct": true} or {"correct": false}
 Nothing else.`;
+}
 
 function buildUserMessage(params: {
-  chineseSentence: string;
+  sentence: string;
   referenceTranslation: string;
   userTranslation: string;
   targetWord: string;
   targetMeaning: string;
+  languageName: string;
 }): string {
-  return `Chinese sentence: ${params.chineseSentence}
+  return `${params.languageName} sentence: ${params.sentence}
 Reference translation: ${params.referenceTranslation}
 Student's translation: ${params.userTranslation}
 
@@ -95,15 +99,24 @@ export async function POST(request: NextRequest) {
       throw notFoundError("Flashcard", flashcardId);
     }
 
+    // Get user's target language for prompt context
+    const user = await db.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { targetLanguage: true },
+    });
+    const langConfig = getLanguageConfig(user.targetLanguage);
+    const languageName = langConfig.name;
+
     // Ask LLM to judge whether the target word's meaning is reflected
     const result = await callLLM({
-      systemMessage: SYSTEM_MESSAGE,
+      systemMessage: buildSystemMessage(languageName),
       userMessage: buildUserMessage({
-        chineseSentence: generatedSentence,
+        sentence: generatedSentence,
         referenceTranslation: generatedTranslation ?? "",
         userTranslation,
         targetWord: flashcard.word,
         targetMeaning: flashcard.englishMeaning,
+        languageName,
       }),
       schema: ResponseSchema,
       maxRetries: 1,

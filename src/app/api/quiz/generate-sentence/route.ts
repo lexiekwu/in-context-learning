@@ -9,14 +9,19 @@ import {
   notFoundError,
 } from "@/lib/errors";
 import { callLLM } from "@/lib/llm/call";
-import { SentenceGenerationResponseSchema } from "@/lib/llm/schemas";
+import {
+  SentenceGenerationResponseSchema,
+  SentenceGenerationPhoneticResponseSchema,
+} from "@/lib/llm/schemas";
 import type { SentenceGenerationResponse } from "@/lib/llm/schemas";
 import {
   sentenceGenerationSystemMessage,
   sentenceGenerationUserMessage,
 } from "@/lib/llm/prompts";
+import type { LanguagePromptContext } from "@/lib/llm/prompts";
 import { sanitizeForPrompt } from "@/lib/llm/sanitize";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getLanguageConfig, getCharacterSet } from "@/lib/languages";
 
 // ---------------------------------------------------------------------------
 // Request validation
@@ -91,12 +96,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get character set from user profile
+    // Get language settings from user profile
     const user = await db.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { characterSet: true },
+      select: { characterSet: true, targetLanguage: true, languageVariant: true },
     });
-    const characterSet = user.characterSet.toLowerCase() as "traditional" | "simplified";
+
+    const langConfig = getLanguageConfig(user.targetLanguage);
+    const characterSet = getCharacterSet(user.targetLanguage, user.languageVariant)
+      ?? (user.characterSet.toLowerCase() as "traditional" | "simplified");
+    const langCtx: LanguagePromptContext = {
+      language: langConfig,
+      variant: user.languageVariant ?? (langConfig.code === "zh" ? characterSet : null),
+    };
+
+    // Pick the right response schema based on language type
+    const responseSchema = langConfig.isPhonetic && langConfig.hasWhitespaceWordSegmentation
+      ? SentenceGenerationPhoneticResponseSchema
+      : SentenceGenerationResponseSchema;
 
     // Dev fallback: if POE_API_KEY is not configured or is a placeholder, return mock data
     const poeKey = process.env.POE_API_KEY;
@@ -176,14 +193,15 @@ export async function POST(request: NextRequest) {
 
     // Call LLM
     const result: SentenceGenerationResponse = await callLLM({
-      systemMessage: sentenceGenerationSystemMessage(characterSet),
+      systemMessage: sentenceGenerationSystemMessage(characterSet, langCtx),
       userMessage: sentenceGenerationUserMessage({
         targetWord: sanitizeForPrompt(flashcard.word),
         pinyin: sanitizeForPrompt(flashcard.pinyin),
         meaning: sanitizeForPrompt(flashcard.englishMeaning),
         characterSet,
+        langCtx,
       }),
-      schema: SentenceGenerationResponseSchema,
+      schema: responseSchema,
       temperature: 0.7,
       maxTokens: 2000,
       purpose: "generate-sentence",
