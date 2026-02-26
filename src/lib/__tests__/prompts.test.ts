@@ -3,19 +3,24 @@ import {
   sentenceGenerationSystemMessage,
   sentenceGenerationUserMessage,
   TRANSLATION_CHECK_SYSTEM_MESSAGE,
+  translationCheckSystemMessage,
   translationCheckUserMessage,
   aiCardCreationSystemMessage,
   aiCardCreationUserMessage,
 } from "@/lib/llm/prompts";
 
+// ---------------------------------------------------------------------------
+// Backwards compatibility — Chinese (existing tests preserved)
+// ---------------------------------------------------------------------------
+
 describe("sentenceGenerationSystemMessage", () => {
-  it("includes the character set in the prompt", () => {
+  it("includes the character set in the prompt (legacy call)", () => {
     const msg = sentenceGenerationSystemMessage("traditional");
     expect(msg).toContain("traditional");
     expect(msg).toContain("繁體字");
   });
 
-  it("includes numbered tone format instruction", () => {
+  it("includes numbered tone format instruction (legacy call)", () => {
     const msg = sentenceGenerationSystemMessage("simplified");
     expect(msg).toContain("ni3hao3");
     expect(msg).toContain("simplified");
@@ -25,6 +30,13 @@ describe("sentenceGenerationSystemMessage", () => {
   it("includes <mark> tag instruction", () => {
     const msg = sentenceGenerationSystemMessage("traditional");
     expect(msg).toContain("<mark>");
+  });
+
+  it("works with explicit language code 'zh' and variant", () => {
+    const msg = sentenceGenerationSystemMessage("zh", "traditional");
+    expect(msg).toContain("Mandarin Chinese");
+    expect(msg).toContain("繁體字");
+    expect(msg).toContain("ni3hao3");
   });
 });
 
@@ -67,6 +79,12 @@ describe("TRANSLATION_CHECK_SYSTEM_MESSAGE", () => {
 
   it("requires JSON response", () => {
     expect(TRANSLATION_CHECK_SYSTEM_MESSAGE).toContain("valid JSON only");
+  });
+
+  it("matches the output of translationCheckSystemMessage('zh')", () => {
+    expect(TRANSLATION_CHECK_SYSTEM_MESSAGE).toBe(
+      translationCheckSystemMessage("zh"),
+    );
   });
 });
 
@@ -155,5 +173,146 @@ describe("aiCardCreationUserMessage", () => {
 
     expect(msg).toContain("single primary English meaning");
     expect(msg).not.toContain("semicolons");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-language support — new tests
+// ---------------------------------------------------------------------------
+
+describe("sentenceGenerationSystemMessage (multi-language)", () => {
+  it("generates Japanese-specific prompts", () => {
+    const msg = sentenceGenerationSystemMessage("ja");
+    expect(msg).toContain("Japanese");
+    expect(msg).toContain("hiragana");
+    expect(msg).not.toContain("pinyin");
+    expect(msg).not.toContain("繁體字");
+  });
+
+  it("generates Spanish prompts without reading instructions", () => {
+    const msg = sentenceGenerationSystemMessage("es");
+    expect(msg).toContain("Spanish");
+    expect(msg).not.toContain("pinyin");
+    expect(msg).not.toContain("reading");
+    expect(msg).not.toContain("hiragana");
+  });
+
+  it("generates Korean prompts with romanization", () => {
+    const msg = sentenceGenerationSystemMessage("ko");
+    expect(msg).toContain("Korean");
+    expect(msg).toContain("Revised Romanization");
+  });
+
+  it("falls back to Chinese for unknown language codes", () => {
+    const msg = sentenceGenerationSystemMessage("xx");
+    expect(msg).toContain("Mandarin Chinese");
+  });
+});
+
+describe("sentenceGenerationUserMessage (multi-language)", () => {
+  it("uses 'reading' label for Japanese", () => {
+    const msg = sentenceGenerationUserMessage({
+      targetWord: "食べる",
+      pinyin: "たべる",
+      meaning: "to eat",
+      characterSet: "",
+      language: "ja",
+    });
+
+    expect(msg).toContain("Reading: たべる");
+    expect(msg).toContain("Japanese");
+    expect(msg).toContain('"reading"');
+  });
+
+  it("omits reading field for phonetic languages", () => {
+    const msg = sentenceGenerationUserMessage({
+      targetWord: "comer",
+      pinyin: "",
+      meaning: "to eat",
+      characterSet: "",
+      language: "es",
+    });
+
+    expect(msg).toContain("Spanish");
+    expect(msg).not.toContain("Pinyin:");
+    expect(msg).not.toContain("Reading:");
+  });
+});
+
+describe("translationCheckSystemMessage (multi-language)", () => {
+  it("generates language-specific grading prompt for Japanese", () => {
+    const msg = translationCheckSystemMessage("ja");
+    expect(msg).toContain("Japanese");
+    expect(msg).toContain("LENIENT");
+    expect(msg).toContain("STRICT on meaning");
+  });
+
+  it("generates language-specific grading prompt for Spanish", () => {
+    const msg = translationCheckSystemMessage("es");
+    expect(msg).toContain("Spanish");
+  });
+
+  it("defaults to Chinese", () => {
+    const msg = translationCheckSystemMessage();
+    expect(msg).toContain("Mandarin Chinese");
+  });
+});
+
+describe("translationCheckUserMessage (multi-language)", () => {
+  it("uses language name in sentence label for Japanese", () => {
+    const msg = translationCheckUserMessage({
+      chineseSentence: "彼は食べる",
+      correctTranslation: "He eats",
+      userTranslation: "He eats food",
+      targetWord: "食べる",
+      targetMeaning: "to eat",
+      language: "ja",
+    });
+
+    expect(msg).toContain("Japanese sentence:");
+  });
+});
+
+describe("aiCardCreationSystemMessage (multi-language)", () => {
+  it("generates Japanese card creation prompts", () => {
+    const msg = aiCardCreationSystemMessage("ja");
+    expect(msg).toContain("Japanese");
+    expect(msg).toContain("hiragana");
+    expect(msg).not.toContain("繁體字");
+  });
+
+  it("generates Spanish card creation prompts without reading", () => {
+    const msg = aiCardCreationSystemMessage("es");
+    expect(msg).toContain("Spanish");
+    expect(msg).not.toContain("pinyin");
+    expect(msg).not.toContain("reading");
+  });
+});
+
+describe("aiCardCreationUserMessage (multi-language)", () => {
+  it("includes reading field for Japanese", () => {
+    const msg = aiCardCreationUserMessage({
+      input: "eat",
+      inputLanguage: "english",
+      characterSet: "",
+      language: "ja",
+    });
+
+    expect(msg).toContain("Japanese");
+    expect(msg).toContain('"reading"');
+  });
+
+  it("omits reading field and character set for Spanish", () => {
+    const msg = aiCardCreationUserMessage({
+      input: "eat",
+      inputLanguage: "english",
+      characterSet: "",
+      language: "es",
+    });
+
+    expect(msg).toContain("Spanish");
+    expect(msg).not.toContain('"reading"');
+    expect(msg).not.toContain('"pinyin"');
+    expect(msg).not.toContain("Character set:");
   });
 });
