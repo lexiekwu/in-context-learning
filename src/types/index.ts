@@ -9,13 +9,12 @@
 
 import type {
   CardState,
-  CharacterSet,
   Rating,
   SubscriptionStatus,
 } from "@/generated/prisma/client";
 
 // Re-export Prisma enums for convenience
-export type { CardState, CharacterSet, Rating, SubscriptionStatus };
+export type { CardState, Rating, SubscriptionStatus };
 
 // ---------------------------------------------------------------------------
 // Auth / Session

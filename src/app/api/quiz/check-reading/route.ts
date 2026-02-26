@@ -71,30 +71,32 @@ export async function POST(request: NextRequest) {
     // Look up the flashcard (scoped to user)
     const flashcard = await db.flashcard.findFirst({
       where: { id: flashcardId, userId },
-      select: { pinyin: true },
+      select: { reading: true },
     });
 
     if (!flashcard) {
       throw notFoundError("Flashcard", flashcardId);
     }
 
+    const cardReading = flashcard.reading ?? "";
+
     // Run the reading verification (using pinyin verifier for now — works for numbered-tone formats)
-    const result = verifyPinyin(userReading, flashcard.pinyin);
+    const result = verifyPinyin(userReading, cardReading);
 
     // If tone marks were detected (Chinese-specific), return a soft rejection with feedback
     if (result.hasToneMarks) {
       return NextResponse.json({
         correct: false,
-        correctReading: flashcard.pinyin,
-        expectedReading: flashcard.pinyin,
+        correctReading: cardReading,
+        expectedReading: cardReading,
         feedback: result.toneMarkMessage,
       });
     }
 
     return NextResponse.json({
       correct: result.correct,
-      correctReading: flashcard.pinyin,
-      expectedReading: flashcard.pinyin,
+      correctReading: cardReading,
+      expectedReading: cardReading,
     });
   } catch (error) {
     return errorResponse(error);

@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       flashcard: {
         id: result.card.id,
         word: result.card.word,
-        pinyin: result.card.pinyin,
+        pinyin: result.card.reading ?? "",
         englishMeaning: result.card.englishMeaning,
         state: result.card.state,
         reps: result.card.reps,

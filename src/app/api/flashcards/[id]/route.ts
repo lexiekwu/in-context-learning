@@ -40,7 +40,7 @@ const updateFlashcardSchema = z
 function toFlashcardResponse(card: {
   id: string;
   word: string;
-  pinyin: string;
+  reading: string | null;
   englishMeaning: string;
   exampleSentence: string | null;
   state: CardState;
@@ -52,7 +52,7 @@ function toFlashcardResponse(card: {
   return {
     id: card.id,
     word: card.word,
-    pinyin: card.pinyin,
+    pinyin: card.reading ?? "",
     englishMeaning: card.englishMeaning,
     exampleSentence: card.exampleSentence,
     state: card.state,
@@ -107,16 +107,17 @@ export async function PUT(
       throw notFoundError("Flashcard", id);
     }
 
-    const { reading, ...restData } = parsed.data;
-    // Map "reading" to the DB "pinyin" column if provided
-    const data = reading !== undefined
-      ? { ...restData, pinyin: reading }
+    const { reading, pinyin: _pinyin, ...restData } = parsed.data;
+    // Map "reading" or legacy "pinyin" to the DB "reading" column if provided
+    const effectiveReading = reading ?? _pinyin;
+    const data = effectiveReading !== undefined
+      ? { ...restData, reading: effectiveReading }
       : restData;
 
     // If word is being changed, check for duplicate
     if (data.word && data.word !== existing.word) {
       const duplicate = await db.flashcard.findUnique({
-        where: { userId_word: { userId, word: data.word } },
+        where: { userId_word_language: { userId, word: data.word, language: existing.language } },
       });
       if (duplicate) {
         throw duplicateError(

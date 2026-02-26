@@ -11,14 +11,13 @@ import {
 import { callLLM } from "@/lib/llm/call";
 import {
   SentenceGenerationResponseSchema,
-  SentenceGenerationPhoneticResponseSchema,
+  createSentenceGenerationSchema,
 } from "@/lib/llm/schemas";
-import type { SentenceGenerationResponse } from "@/lib/llm/schemas";
+
 import {
   sentenceGenerationSystemMessage,
   sentenceGenerationUserMessage,
 } from "@/lib/llm/prompts";
-import type { LanguagePromptContext } from "@/lib/llm/prompts";
 import { sanitizeForPrompt } from "@/lib/llm/sanitize";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getLanguageConfig, getCharacterSet } from "@/lib/languages";
@@ -99,28 +98,22 @@ export async function POST(request: NextRequest) {
     // Get language settings from user profile
     const user = await db.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { characterSet: true, targetLanguage: true, languageVariant: true },
+      select: { targetLanguage: true, languageVariant: true },
     });
 
-    const langConfig = getLanguageConfig(user.targetLanguage);
-    const characterSet = getCharacterSet(user.targetLanguage, user.languageVariant)
-      ?? (user.characterSet.toLowerCase() as "traditional" | "simplified");
-    const langCtx: LanguagePromptContext = {
-      language: langConfig,
-      variant: user.languageVariant ?? (langConfig.code === "zh" ? characterSet : null),
-    };
+    const langCode = user.targetLanguage ?? "zh";
+    const langConfig = getLanguageConfig(langCode);
+    const characterSet = getCharacterSet(langCode, user.languageVariant) ?? "traditional";
 
     // Pick the right response schema based on language type
-    const responseSchema = langConfig.isPhonetic && langConfig.hasWhitespaceWordSegmentation
-      ? SentenceGenerationPhoneticResponseSchema
-      : SentenceGenerationResponseSchema;
+    const responseSchema = createSentenceGenerationSchema(langCode);
 
     // Dev fallback: if POE_API_KEY is not configured or is a placeholder, return mock data
     const poeKey = process.env.POE_API_KEY;
     if (!poeKey || poeKey.startsWith("your")) {
       const word = flashcard.word;
       const meaning = flashcard.englishMeaning;
-      const pin = flashcard.pinyin;
+      const pin = flashcard.reading ?? "";
 
       // Pick a varied template based on flashcard ID hash
       const templates = [
@@ -192,14 +185,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Call LLM
-    const result: SentenceGenerationResponse = await callLLM({
-      systemMessage: sentenceGenerationSystemMessage(characterSet, langCtx),
+    const result = await callLLM({
+      systemMessage: sentenceGenerationSystemMessage(langCode, user.languageVariant ?? undefined),
       userMessage: sentenceGenerationUserMessage({
         targetWord: sanitizeForPrompt(flashcard.word),
-        pinyin: sanitizeForPrompt(flashcard.pinyin),
+        pinyin: sanitizeForPrompt(flashcard.reading ?? ""),
         meaning: sanitizeForPrompt(flashcard.englishMeaning),
         characterSet,
-        langCtx,
+        language: langCode,
       }),
       schema: responseSchema,
       temperature: 0.7,

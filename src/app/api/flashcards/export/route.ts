@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       totalCards: cards.length,
       cards: cards.map((card) => ({
         word: card.word,
-        pinyin: card.pinyin,
+        pinyin: card.reading ?? "",
         englishMeaning: card.englishMeaning,
         exampleSentence: card.exampleSentence,
         state: card.state,

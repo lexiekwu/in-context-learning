@@ -18,7 +18,8 @@ async function main() {
       email: "demo@example.com",
       name: "Demo User",
       googleId: "google-demo-user-001",
-      characterSet: "TRADITIONAL",
+      targetLanguage: "zh",
+      languageVariant: "traditional",
       subscriptionStatus: "TRIAL",
       // trialEndsAt defaults to now() + 7 days via DB default
     },
@@ -36,7 +37,7 @@ async function main() {
     // NEW cards (3) — never reviewed, due immediately
     {
       word: "你好",
-      pinyin: "ni3hao3",
+      reading: "ni3hao3",
       englishMeaning: "hello",
       state: "NEW" as const,
       difficulty: 0,
@@ -47,7 +48,7 @@ async function main() {
     },
     {
       word: "謝謝",
-      pinyin: "xie4xie4",
+      reading: "xie4xie4",
       englishMeaning: "thank you",
       state: "NEW" as const,
       difficulty: 0,
@@ -58,7 +59,7 @@ async function main() {
     },
     {
       word: "再見",
-      pinyin: "zai4jian4",
+      reading: "zai4jian4",
       englishMeaning: "goodbye",
       state: "NEW" as const,
       difficulty: 0,
@@ -71,7 +72,7 @@ async function main() {
     // LEARNING cards (3) — reviewed once or twice, short intervals
     {
       word: "學習",
-      pinyin: "xue2xi2",
+      reading: "xue2xi2",
       englishMeaning: "to study / to learn",
       state: "LEARNING" as const,
       difficulty: 5.2,
@@ -83,7 +84,7 @@ async function main() {
     },
     {
       word: "吃飯",
-      pinyin: "chi1fan4",
+      reading: "chi1fan4",
       englishMeaning: "to eat (a meal)",
       state: "LEARNING" as const,
       difficulty: 5.5,
@@ -95,7 +96,7 @@ async function main() {
     },
     {
       word: "喝水",
-      pinyin: "he1shui3",
+      reading: "he1shui3",
       englishMeaning: "to drink water",
       state: "LEARNING" as const,
       difficulty: 4.8,
@@ -109,7 +110,7 @@ async function main() {
     // REVIEW cards (4) — graduated, longer intervals
     {
       word: "圖書館",
-      pinyin: "tu2shu1guan3",
+      reading: "tu2shu1guan3",
       englishMeaning: "library",
       state: "REVIEW" as const,
       difficulty: 5.1,
@@ -121,7 +122,7 @@ async function main() {
     },
     {
       word: "每天",
-      pinyin: "mei3tian1",
+      reading: "mei3tian1",
       englishMeaning: "every day",
       state: "REVIEW" as const,
       difficulty: 4.5,
@@ -133,7 +134,7 @@ async function main() {
     },
     {
       word: "電腦",
-      pinyin: "dian4nao3",
+      reading: "dian4nao3",
       englishMeaning: "computer",
       state: "REVIEW" as const,
       difficulty: 5.8,
@@ -145,7 +146,7 @@ async function main() {
     },
     {
       word: "工作",
-      pinyin: "gong1zuo4",
+      reading: "gong1zuo4",
       englishMeaning: "to work / work",
       state: "REVIEW" as const,
       difficulty: 4.2,
@@ -159,7 +160,7 @@ async function main() {
     // RELEARNING cards (2) — lapsed from REVIEW, short intervals
     {
       word: "天氣",
-      pinyin: "tian1qi4",
+      reading: "tian1qi4",
       englishMeaning: "weather",
       state: "RELEARNING" as const,
       difficulty: 6.2,
@@ -171,7 +172,7 @@ async function main() {
     },
     {
       word: "醫院",
-      pinyin: "yi1yuan4",
+      reading: "yi1yuan4",
       englishMeaning: "hospital",
       state: "RELEARNING" as const,
       difficulty: 5.9,
@@ -187,13 +188,13 @@ async function main() {
   for (const data of flashcardData) {
     const card = await prisma.flashcard.upsert({
       where: {
-        userId_word: { userId: user.id, word: data.word },
+        userId_word_language: { userId: user.id, word: data.word, language: "zh" },
       },
       update: {},
       create: {
         userId: user.id,
         word: data.word,
-        pinyin: data.pinyin,
+        reading: data.reading,
         englishMeaning: data.englishMeaning,
         state: data.state,
         difficulty: data.difficulty,
@@ -231,35 +232,35 @@ async function main() {
     {
       flashcard: reviewedCards[0], // 學習 (LEARNING)
       translationCorrect: true,
-      pinyinCorrect: true,
+      readingCorrect: true,
       overallRating: "GOOD" as const,
       priorState: "NEW" as const,
     },
     {
       flashcard: reviewedCards[1], // 吃飯 (LEARNING)
       translationCorrect: true,
-      pinyinCorrect: false,
+      readingCorrect: false,
       overallRating: "AGAIN" as const,
       priorState: "NEW" as const,
     },
     {
       flashcard: reviewedCards[3], // 圖書館 (REVIEW)
       translationCorrect: true,
-      pinyinCorrect: true,
+      readingCorrect: true,
       overallRating: "GOOD" as const,
       priorState: "REVIEW" as const,
     },
     {
       flashcard: reviewedCards[5], // 電腦 (REVIEW)
       translationCorrect: false,
-      pinyinCorrect: true,
+      readingCorrect: true,
       overallRating: "AGAIN" as const,
       priorState: "REVIEW" as const,
     },
     {
       flashcard: reviewedCards[7], // 天氣 (RELEARNING)
       translationCorrect: true,
-      pinyinCorrect: true,
+      readingCorrect: true,
       overallRating: "GOOD" as const,
       priorState: "REVIEW" as const,
     },
@@ -277,8 +278,8 @@ async function main() {
         userTranslation: "Sample user translation.",
         correctTranslation: "Sample correct translation.",
         translationCorrect: rl.translationCorrect,
-        userPinyin: rl.flashcard.pinyin,
-        pinyinCorrect: rl.pinyinCorrect,
+        userReading: rl.flashcard.reading,
+        readingCorrect: rl.readingCorrect,
         overallRating: rl.overallRating,
         reviewedAt: new Date(
           now.getTime() - (25 - i * 5) * 60 * 1000
