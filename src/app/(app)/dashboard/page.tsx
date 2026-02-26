@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { MetricsHistoryEntry } from "@/types";
+import StarterPacks from "@/components/dashboard/StarterPacks";
 
 type HistoryPeriod = "7d" | "30d" | "90d";
 
@@ -23,21 +24,22 @@ export default function DashboardPage() {
   const [historyData, setHistoryData] = useState<MetricsHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const res = await fetch("/api/metrics/overview");
-        if (!res.ok) throw new Error("Failed to load dashboard data");
-        const data = await res.json();
-        setStats(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
-      } finally {
-        setLoading(false);
-      }
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/metrics/overview");
+      if (!res.ok) throw new Error("Failed to load dashboard data");
+      const data = await res.json();
+      setStats(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
     }
-    fetchStats();
   }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   useEffect(() => {
     async function fetchHistory() {
@@ -99,74 +101,125 @@ export default function DashboardPage() {
     <div className="mx-auto w-full max-w-4xl px-4 py-12">
       <h1 className="mb-8 text-2xl font-bold text-zinc-50">Dashboard</h1>
 
-      {/* Stat Cards */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Due Today */}
-        <div className="flex flex-col justify-between rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <div>
-            <p className="text-sm font-medium text-zinc-400">Due Today</p>
-            <p className="mt-1 text-3xl font-bold text-zinc-50">{dueToday}</p>
-          </div>
-          {dueToday > 0 && (
-            <Link
-              href="/quiz"
-              className="mt-3 inline-flex min-h-9 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
-            >
-              Start Quiz
-            </Link>
-          )}
-          {dueToday === 0 && (
-            <p className="mt-3 text-sm text-zinc-500">All caught up!</p>
-          )}
-        </div>
-
-        {/* Streak */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <p className="text-sm font-medium text-zinc-400">Streak</p>
-          <div className="mt-1 flex items-baseline gap-2">
-            <p className="text-3xl font-bold text-zinc-50">{streak}</p>
-            <span className="text-lg text-orange-400" aria-label="flame">
-              🔥
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-zinc-500">
-            {streak === 1 ? "day" : "days"} in a row
-          </p>
-        </div>
-
-        {/* 7-Day Accuracy */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <p className="text-sm font-medium text-zinc-400">7-Day Accuracy</p>
-          <p className={`mt-1 text-3xl font-bold ${accuracyColor}`}>
-            {stats?.todayReviewed === 0 && accuracy === 0
-              ? "--"
-              : `${Math.round(accuracy)}%`}
-          </p>
-          <p className="mt-1 text-sm text-zinc-500">last 7 days</p>
-        </div>
-
-        {/* Total Cards */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <p className="text-sm font-medium text-zinc-400">Total Cards</p>
-          <p className="mt-1 text-3xl font-bold text-zinc-50">{totalCards}</p>
-          {stats?.cardsByState && (
-            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500">
-              {stats.cardsByState.NEW !== undefined && (
-                <span>New: {stats.cardsByState.NEW}</span>
-              )}
-              {stats.cardsByState.LEARNING !== undefined && (
-                <span>Learning: {stats.cardsByState.LEARNING}</span>
-              )}
-              {stats.cardsByState.REVIEW !== undefined && (
-                <span>Review: {stats.cardsByState.REVIEW}</span>
-              )}
-              {stats.cardsByState.RELEARNING !== undefined && (
-                <span>Relearn: {stats.cardsByState.RELEARNING}</span>
-              )}
+      {totalCards === 0 ? (
+        <>
+          {/* Welcome Banner */}
+          <div className="mb-8 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+            <h2 className="mb-1 text-lg font-semibold text-zinc-50">
+              Welcome to In Context Flashcards!
+            </h2>
+            <p className="mb-5 text-sm text-zinc-400">
+              Here&apos;s how it works:
+            </p>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-4">
+                <div className="mb-2 text-2xl">📝</div>
+                <h3 className="text-sm font-semibold text-zinc-50">
+                  Add Cards
+                </h3>
+                <p className="mt-1 text-xs text-zinc-400">
+                  Build your vocabulary with Chinese words. Use AI to auto-fill
+                  pinyin and meanings.
+                </p>
+              </div>
+              <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-4">
+                <div className="mb-2 text-2xl">🧠</div>
+                <h3 className="text-sm font-semibold text-zinc-50">
+                  Practice Daily
+                </h3>
+                <p className="mt-1 text-xs text-zinc-400">
+                  Quiz yourself with AI-generated sentences. Translate them and
+                  type pinyin.
+                </p>
+              </div>
+              <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-4">
+                <div className="mb-2 text-2xl">📈</div>
+                <h3 className="text-sm font-semibold text-zinc-50">
+                  Track Progress
+                </h3>
+                <p className="mt-1 text-xs text-zinc-400">
+                  Spaced repetition schedules reviews at the optimal time for
+                  long-term memory.
+                </p>
+              </div>
             </div>
-          )}
+          </div>
+
+          {/* Starter Packs */}
+          <div className="mb-8">
+            <StarterPacks onCardsAdded={fetchStats} />
+          </div>
+        </>
+      ) : (
+        /* Stat Cards */
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Due Today */}
+          <div className="flex flex-col justify-between rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+            <div>
+              <p className="text-sm font-medium text-zinc-400">Due Today</p>
+              <p className="mt-1 text-3xl font-bold text-zinc-50">{dueToday}</p>
+            </div>
+            {dueToday > 0 && (
+              <Link
+                href="/quiz"
+                className="mt-3 inline-flex min-h-9 items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+              >
+                Start Quiz
+              </Link>
+            )}
+            {dueToday === 0 && (
+              <p className="mt-3 text-sm text-zinc-500">All caught up!</p>
+            )}
+          </div>
+
+          {/* Streak */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+            <p className="text-sm font-medium text-zinc-400">Streak</p>
+            <div className="mt-1 flex items-baseline gap-2">
+              <p className="text-3xl font-bold text-zinc-50">{streak}</p>
+              <span className="text-lg text-orange-400" aria-label="flame">
+                🔥
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-zinc-500">
+              {streak === 1 ? "day" : "days"} in a row
+            </p>
+          </div>
+
+          {/* 7-Day Accuracy */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+            <p className="text-sm font-medium text-zinc-400">7-Day Accuracy</p>
+            <p className={`mt-1 text-3xl font-bold ${accuracyColor}`}>
+              {stats?.todayReviewed === 0 && accuracy === 0
+                ? "--"
+                : `${Math.round(accuracy)}%`}
+            </p>
+            <p className="mt-1 text-sm text-zinc-500">last 7 days</p>
+          </div>
+
+          {/* Total Cards */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+            <p className="text-sm font-medium text-zinc-400">Total Cards</p>
+            <p className="mt-1 text-3xl font-bold text-zinc-50">{totalCards}</p>
+            {stats?.cardsByState && (
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-500">
+                {stats.cardsByState.NEW !== undefined && (
+                  <span>New: {stats.cardsByState.NEW}</span>
+                )}
+                {stats.cardsByState.LEARNING !== undefined && (
+                  <span>Learning: {stats.cardsByState.LEARNING}</span>
+                )}
+                {stats.cardsByState.REVIEW !== undefined && (
+                  <span>Review: {stats.cardsByState.REVIEW}</span>
+                )}
+                {stats.cardsByState.RELEARNING !== undefined && (
+                  <span>Relearn: {stats.cardsByState.RELEARNING}</span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Cards by State Bar */}
       {stats?.cardsByState && totalCards > 0 && (
