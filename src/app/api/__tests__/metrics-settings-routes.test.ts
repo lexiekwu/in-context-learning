@@ -169,15 +169,16 @@ describe("GET /api/metrics/history", () => {
 // ---------------------------------------------------------------------------
 
 describe("GET /api/user/settings", () => {
-  it("returns user's characterSet", async () => {
+  it("returns user's language settings", async () => {
     authenticatedSession();
-    mockDbUser.findUnique.mockResolvedValue({ characterSet: "TRADITIONAL" });
+    mockDbUser.findUnique.mockResolvedValue({ targetLanguage: "zh", languageVariant: "TRADITIONAL" });
 
     const res = await settingsGet();
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.characterSet).toBe("TRADITIONAL");
+    expect(json.targetLanguage).toBe("zh");
+    expect(json.languageVariant).toBe("TRADITIONAL");
   });
 
   it("returns 404 when user not found", async () => {
@@ -205,25 +206,25 @@ describe("GET /api/user/settings", () => {
 // ---------------------------------------------------------------------------
 
 describe("PUT /api/user/settings", () => {
-  it("updates characterSet to SIMPLIFIED", async () => {
+  it("updates targetLanguage to Japanese", async () => {
     authenticatedSession();
-    mockDbUser.update.mockResolvedValue({ characterSet: "SIMPLIFIED" });
+    mockDbUser.update.mockResolvedValue({ targetLanguage: "ja", languageVariant: null });
 
     const req = new Request("http://localhost/api/user/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ characterSet: "SIMPLIFIED" }),
+      body: JSON.stringify({ targetLanguage: "ja" }),
     });
 
     const res = await settingsPut(req);
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.characterSet).toBe("SIMPLIFIED");
+    expect(json.targetLanguage).toBe("ja");
     expect(mockDbUser.update).toHaveBeenCalledWith({
       where: { id: TEST_USER_ID },
-      data: { characterSet: "SIMPLIFIED" },
-      select: { characterSet: true },
+      data: { targetLanguage: "ja" },
+      select: { targetLanguage: true, languageVariant: true },
     });
   });
 

@@ -188,7 +188,7 @@ describe("POST /api/quiz/check-reading", () => {
     });
     mockDbFlashcard.findFirst.mockResolvedValue({
       id: TEST_FLASHCARD_ID,
-      pinyin: "ni3hao3",
+      reading: "ni3hao3",
       userId: TEST_USER_ID,
     });
 
@@ -212,7 +212,7 @@ describe("POST /api/quiz/check-reading", () => {
     });
     mockDbFlashcard.findFirst.mockResolvedValue({
       id: TEST_FLASHCARD_ID,
-      pinyin: "ni3hao3",
+      reading: "ni3hao3",
       userId: TEST_USER_ID,
     });
 
@@ -313,7 +313,7 @@ describe("POST /api/quiz/submit-result", () => {
       id: TEST_FLASHCARD_ID,
       userId: TEST_USER_ID,
       word: "你好",
-      pinyin: "ni3hao3",
+      reading: "ni3hao3",
       englishMeaning: "hello",
       state: "NEW",
       due: new Date(),
