@@ -6,8 +6,8 @@ import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 import { QuizCard } from "@/components/quiz/QuizCard";
 import { TranslationInput } from "@/components/quiz/TranslationInput";
 import { TranslationFeedback } from "@/components/quiz/TranslationFeedback";
-import { PinyinInput } from "@/components/quiz/PinyinInput";
-import { PinyinFeedback } from "@/components/quiz/PinyinFeedback";
+import { ReadingInput } from "@/components/quiz/ReadingInput";
+import { ReadingFeedback } from "@/components/quiz/ReadingFeedback";
 import { CardComplete } from "@/components/quiz/CardComplete";
 import { SessionSummary } from "@/components/quiz/SessionSummary";
 import { LoadingSkeleton } from "@/components/quiz/LoadingSkeleton";
@@ -194,9 +194,9 @@ export default function QuizPage() {
             />
           )}
 
-          {/* Pinyin input */}
+          {/* Reading input (pinyin for Chinese, romaji for Japanese, etc.) */}
           {showPinyinInput && (
-            <PinyinInput
+            <ReadingInput
               targetWord={card.flashcard.word}
               onSubmit={quiz.submitPinyin}
               isLoading={isVerifyingPinyin}
@@ -204,11 +204,11 @@ export default function QuizPage() {
             />
           )}
 
-          {/* Pinyin feedback */}
+          {/* Reading feedback */}
           {showPinyinResult && card.pinyinResult && (
-            <PinyinFeedback
+            <ReadingFeedback
               result={card.pinyinResult}
-              userPinyin={card.userPinyin}
+              userReading={card.userPinyin}
               targetWord={card.flashcard.word}
               onContinue={quiz.advanceFromCorrect}
               onRetypeSuccess={quiz.retypePinyin}
