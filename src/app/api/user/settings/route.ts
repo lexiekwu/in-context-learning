@@ -4,13 +4,17 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/rate-limit";
 
+const VALID_LANGUAGES = ["zh", "ja", "ko", "es", "fr", "de"] as const;
+
 const updateSettingsSchema = z.object({
-  characterSet: z.enum(["TRADITIONAL", "SIMPLIFIED"]),
+  characterSet: z.enum(["TRADITIONAL", "SIMPLIFIED"]).optional(),
+  targetLanguage: z.enum(VALID_LANGUAGES).optional(),
+  languageVariant: z.string().nullable().optional(),
 });
 
 /**
  * GET /api/user/settings
- * Returns the current user's settings (characterSet).
+ * Returns the current user's settings.
  */
 export async function GET() {
   const session = await auth();
@@ -24,19 +28,27 @@ export async function GET() {
 
   const user = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { characterSet: true },
+    select: {
+      characterSet: true,
+      targetLanguage: true,
+      languageVariant: true,
+    },
   });
 
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ characterSet: user.characterSet });
+  return NextResponse.json({
+    characterSet: user.characterSet,
+    targetLanguage: user.targetLanguage,
+    languageVariant: user.languageVariant,
+  });
 }
 
 /**
  * PUT /api/user/settings
- * Updates the user's characterSet preference.
+ * Updates the user's language and display preferences.
  */
 export async function PUT(request: Request) {
   const session = await auth();
@@ -62,11 +74,38 @@ export async function PUT(request: Request) {
     );
   }
 
+  // Build update data from provided fields
+  const data: Record<string, unknown> = {};
+  if (parsed.data.characterSet !== undefined) {
+    data.characterSet = parsed.data.characterSet;
+  }
+  if (parsed.data.targetLanguage !== undefined) {
+    data.targetLanguage = parsed.data.targetLanguage;
+  }
+  if (parsed.data.languageVariant !== undefined) {
+    data.languageVariant = parsed.data.languageVariant;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json(
+      { error: "No settings to update" },
+      { status: 400 }
+    );
+  }
+
   const updated = await db.user.update({
     where: { id: session.user.id },
-    data: { characterSet: parsed.data.characterSet },
-    select: { characterSet: true },
+    data,
+    select: {
+      characterSet: true,
+      targetLanguage: true,
+      languageVariant: true,
+    },
   });
 
-  return NextResponse.json({ characterSet: updated.characterSet });
+  return NextResponse.json({
+    characterSet: updated.characterSet,
+    targetLanguage: updated.targetLanguage,
+    languageVariant: updated.languageVariant,
+  });
 }
