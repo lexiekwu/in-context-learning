@@ -6,8 +6,8 @@ import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 import { QuizCard } from "@/components/quiz/QuizCard";
 import { TranslationInput } from "@/components/quiz/TranslationInput";
 import { TranslationFeedback } from "@/components/quiz/TranslationFeedback";
-import { PinyinInput } from "@/components/quiz/PinyinInput";
-import { PinyinFeedback } from "@/components/quiz/PinyinFeedback";
+import { PinyinInput as ReadingInput } from "@/components/quiz/PinyinInput";
+import { PinyinFeedback as ReadingFeedback } from "@/components/quiz/PinyinFeedback";
 import { CardComplete } from "@/components/quiz/CardComplete";
 import { SessionSummary } from "@/components/quiz/SessionSummary";
 import { LoadingSkeleton } from "@/components/quiz/LoadingSkeleton";
@@ -114,27 +114,27 @@ export default function QuizPage() {
   }
 
   const isCheckingTranslation = quiz.state === "CHECKING_TRANSLATION";
-  const isVerifyingPinyin = quiz.state === "VERIFY_PINYIN";
+  const isVerifyingReading = quiz.state === "VERIFY_READING";
   const showTranslationFeedback =
     quiz.state === "TRANSLATION_CORRECT" ||
     quiz.state === "TRANSLATION_INCORRECT" ||
     quiz.state === "RETYPING_TRANSLATION";
-  const showPinyinInput =
-    quiz.state === "PINYIN_INPUT" ||
-    quiz.state === "VERIFY_PINYIN";
-  const showPinyinFeedback =
-    quiz.state === "PINYIN_CORRECT" ||
-    quiz.state === "PINYIN_INCORRECT" ||
-    quiz.state === "RETYPING_PINYIN";
+  const showReadingInput =
+    quiz.state === "READING_INPUT" ||
+    quiz.state === "VERIFY_READING";
+  const showReadingFeedback =
+    quiz.state === "READING_CORRECT" ||
+    quiz.state === "READING_INCORRECT" ||
+    quiz.state === "RETYPING_READING";
   const showCardComplete = quiz.state === "CARD_COMPLETE";
 
   const showTranslationResult =
     showTranslationFeedback ||
-    showPinyinInput ||
-    showPinyinFeedback ||
+    showReadingInput ||
+    showReadingFeedback ||
     showCardComplete;
-  const showPinyinResult =
-    showPinyinFeedback || showCardComplete;
+  const showReadingResult =
+    showReadingFeedback || showCardComplete;
 
   return (
     <div ref={swipeRef} className="flex flex-1 flex-col">
@@ -194,25 +194,25 @@ export default function QuizPage() {
             />
           )}
 
-          {/* Pinyin input */}
-          {showPinyinInput && (
-            <PinyinInput
+          {/* Reading input (pinyin for Chinese; hidden for phonetic languages) */}
+          {!quiz.isPhonetic && showReadingInput && (
+            <ReadingInput
               targetWord={card.flashcard.word}
-              onSubmit={quiz.submitPinyin}
-              isLoading={isVerifyingPinyin}
-              disabled={isVerifyingPinyin}
+              onSubmit={quiz.submitReading}
+              isLoading={isVerifyingReading}
+              disabled={isVerifyingReading}
             />
           )}
 
-          {/* Pinyin feedback */}
-          {showPinyinResult && card.pinyinResult && (
-            <PinyinFeedback
-              result={card.pinyinResult}
-              userPinyin={card.userPinyin}
+          {/* Reading feedback (pinyin for Chinese; hidden for phonetic languages) */}
+          {!quiz.isPhonetic && showReadingResult && card.readingResult && (
+            <ReadingFeedback
+              result={card.readingResult}
+              userPinyin={card.userReading}
               targetWord={card.flashcard.word}
               onContinue={quiz.advanceFromCorrect}
-              onRetypeSuccess={quiz.retypePinyin}
-              readonly={!showPinyinFeedback}
+              onRetypeSuccess={quiz.retypeReading}
+              readonly={!showReadingFeedback}
             />
           )}
 
