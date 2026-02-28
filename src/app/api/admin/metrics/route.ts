@@ -215,6 +215,176 @@ export async function GET() {
       console.warn("[admin/metrics] LLM queries failed (restart dev server to pick up new Prisma client):", e);
     }
 
+    // PM-critical metrics (separate try/catch)
+    let retention = { dauMau: 0, churnRate: 0 };
+    let learning = { graduationRate: 0, lapseRate: 0 };
+    let quizPerformance = {
+      accuracyByState: [] as Array<{ state: string; total: number; correct: number; accuracy: number }>,
+      avgResponseTimeMs: 0,
+    };
+    let featureAdoption = {
+      languageDistribution: [] as Array<{ language: string; count: number }>,
+    };
+    let growthFunnel = {
+      signupToFirstCard: 0,
+      firstCardToFirstQuiz: 0,
+      day7Retention: 0,
+    };
+
+    try {
+      const oneDayAgo = new Date(now);
+      oneDayAgo.setUTCDate(oneDayAgo.getUTCDate() - 1);
+      const sixtyDaysAgo = new Date(now);
+      sixtyDaysAgo.setUTCDate(sixtyDaysAgo.getUTCDate() - 60);
+      const eightDaysAgo = new Date(now);
+      eightDaysAgo.setUTCDate(eightDaysAgo.getUTCDate() - 8);
+      const sixDaysAgo = new Date(now);
+      sixDaysAgo.setUTCDate(sixDaysAgo.getUTCDate() - 6);
+
+      const [
+        dauUsers,
+        mauUsers,
+        activeLastMonth,
+        activePriorMonth,
+        reviewCards,
+        totalCardsCount,
+        totalLapses,
+        totalReviewCount,
+        accuracyByStateRaw,
+        avgResponseTime,
+        langDistribution,
+        usersWithCards,
+        usersWithCardsAndReviews,
+        totalUsersCount,
+        usersSignedUpBefore8d,
+        day7RetainedUsers,
+      ] = await Promise.all([
+        // DAU: distinct users who reviewed in last 1 day
+        db.reviewLog.findMany({
+          where: { reviewedAt: { gte: oneDayAgo } },
+          select: { userId: true },
+          distinct: ["userId"],
+        }),
+        // MAU: distinct users who reviewed in last 30 days
+        db.reviewLog.findMany({
+          where: { reviewedAt: { gte: thirtyDaysAgo } },
+          select: { userId: true },
+          distinct: ["userId"],
+        }),
+        // Users active in last 30 days (for churn)
+        db.reviewLog.findMany({
+          where: { reviewedAt: { gte: thirtyDaysAgo } },
+          select: { userId: true },
+          distinct: ["userId"],
+        }),
+        // Users active 30-60 days ago
+        db.reviewLog.findMany({
+          where: { reviewedAt: { gte: sixtyDaysAgo, lt: thirtyDaysAgo } },
+          select: { userId: true },
+          distinct: ["userId"],
+        }),
+        // Cards in REVIEW state (graduation)
+        db.flashcard.count({ where: { state: "REVIEW" } }),
+        // Total cards
+        db.flashcard.count(),
+        // Total lapses
+        db.flashcard.aggregate({ _sum: { lapses: true } }),
+        // Total review logs (for lapse rate)
+        db.reviewLog.count(),
+        // Accuracy by card state
+        db.$queryRaw<Array<{ state: string; total: bigint; correct: bigint }>>`
+          SELECT
+            f."state"::text AS state,
+            COUNT(*)::bigint AS total,
+            COUNT(*) FILTER (WHERE r."overallRating" = 'GOOD')::bigint AS correct
+          FROM "ReviewLog" r
+          JOIN "Flashcard" f ON f."id" = r."flashcardId"
+          GROUP BY f."state"
+        `,
+        // Avg response time (last 30 days)
+        db.$queryRaw<Array<{ avg_ms: number }>>`
+          SELECT COALESCE(AVG("responseTimeMs"), 0)::float AS avg_ms
+          FROM "ReviewLog"
+          WHERE "reviewedAt" >= ${thirtyDaysAgo}
+            AND "responseTimeMs" IS NOT NULL
+        `,
+        // Language distribution
+        db.$queryRaw<Array<{ language: string; count: bigint }>>`
+          SELECT u."targetLanguage" AS language, COUNT(f."id")::bigint AS count
+          FROM "Flashcard" f
+          JOIN "User" u ON u."id" = f."userId"
+          GROUP BY u."targetLanguage"
+          ORDER BY count DESC
+        `,
+        // Users with at least 1 flashcard
+        db.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(DISTINCT "userId")::bigint AS count
+          FROM "Flashcard"
+        `,
+        // Users with at least 1 review who also have cards
+        db.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(DISTINCT r."userId")::bigint AS count
+          FROM "ReviewLog" r
+          WHERE EXISTS (SELECT 1 FROM "Flashcard" f WHERE f."userId" = r."userId")
+        `,
+        // Total users (for funnel)
+        db.user.count(),
+        // Users who signed up 8+ days ago (for day 7 retention denominator)
+        db.user.count({ where: { createdAt: { lte: eightDaysAgo } } }),
+        // Users who signed up 8+ days ago AND had a review in days 6-8 after signup
+        db.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(DISTINCT u."id")::bigint AS count
+          FROM "User" u
+          WHERE u."createdAt" <= ${eightDaysAgo}
+            AND EXISTS (
+              SELECT 1 FROM "ReviewLog" r
+              WHERE r."userId" = u."id"
+                AND r."reviewedAt" >= u."createdAt" + interval '6 days'
+                AND r."reviewedAt" <= u."createdAt" + interval '8 days'
+            )
+        `,
+      ]);
+
+      // Retention
+      const mauCount = mauUsers.length;
+      const dauCount = dauUsers.length;
+      retention.dauMau = mauCount > 0 ? dauCount / mauCount : 0;
+
+      const activeLastMonthIds = new Set(activeLastMonth.map((u) => u.userId));
+      const priorMonthIds = activePriorMonth.map((u) => u.userId);
+      const churned = priorMonthIds.filter((id) => !activeLastMonthIds.has(id));
+      retention.churnRate = priorMonthIds.length > 0 ? churned.length / priorMonthIds.length : 0;
+
+      // Learning effectiveness
+      learning.graduationRate = totalCardsCount > 0 ? reviewCards / totalCardsCount : 0;
+      learning.lapseRate = totalReviewCount > 0 ? (totalLapses._sum.lapses ?? 0) / totalReviewCount : 0;
+
+      // Quiz performance
+      quizPerformance.accuracyByState = accuracyByStateRaw.map((r) => ({
+        state: r.state,
+        total: Number(r.total),
+        correct: Number(r.correct),
+        accuracy: Number(r.total) > 0 ? Number(r.correct) / Number(r.total) : 0,
+      }));
+      quizPerformance.avgResponseTimeMs = Math.round(avgResponseTime[0]?.avg_ms ?? 0);
+
+      // Feature adoption
+      featureAdoption.languageDistribution = langDistribution.map((r) => ({
+        language: r.language,
+        count: Number(r.count),
+      }));
+
+      // Growth funnel
+      const usersWithCardsCount = Number(usersWithCards[0]?.count ?? 0);
+      const usersWithReviewsCount = Number(usersWithCardsAndReviews[0]?.count ?? 0);
+      growthFunnel.signupToFirstCard = totalUsersCount > 0 ? usersWithCardsCount / totalUsersCount : 0;
+      growthFunnel.firstCardToFirstQuiz = usersWithCardsCount > 0 ? usersWithReviewsCount / usersWithCardsCount : 0;
+      const day7RetainedCount = Number(day7RetainedUsers[0]?.count ?? 0);
+      growthFunnel.day7Retention = usersSignedUpBefore8d > 0 ? day7RetainedCount / usersSignedUpBefore8d : 0;
+    } catch (e) {
+      console.warn("[admin/metrics] PM metrics queries failed:", e);
+    }
+
     // Stripe revenue (separate try/catch)
     let revenue = {
       last30d: 0,
@@ -315,6 +485,11 @@ export async function GET() {
       })),
       llm: llmData,
       revenue,
+      retention,
+      learning,
+      quizPerformance,
+      featureAdoption,
+      growthFunnel,
     });
   } catch (error) {
     console.error("[admin/metrics] Error:", error);

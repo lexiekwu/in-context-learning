@@ -2,15 +2,7 @@
 
 import { useSession, signOut } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
-
-const LANGUAGES = [
-  { code: "zh", name: "Chinese", nativeName: "中文" },
-  { code: "ja", name: "Japanese", nativeName: "日本語" },
-  { code: "ko", name: "Korean", nativeName: "한국어" },
-  { code: "es", name: "Spanish", nativeName: "Español" },
-  { code: "fr", name: "French", nativeName: "Français" },
-  { code: "de", name: "German", nativeName: "Deutsch" },
-];
+import { SUPPORTED_LANGUAGES } from "@/lib/languages/index";
 
 // Languages that have variant options
 const LANGUAGE_VARIANTS: Record<
@@ -197,7 +189,7 @@ export default function SettingsPage() {
                 saving ? "cursor-wait opacity-60" : "cursor-pointer"
               }`}
             >
-              {LANGUAGES.map((lang) => (
+              {SUPPORTED_LANGUAGES.map((lang) => (
                 <option key={lang.code} value={lang.code}>
                   {lang.nativeName} ({lang.name})
                 </option>

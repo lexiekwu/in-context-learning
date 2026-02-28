@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { starterPacks } from "@/lib/starter-packs";
+import { starterPacksByLanguage } from "@/lib/starter-packs";
 import type { StarterPack } from "@/lib/starter-packs";
 
 interface StarterPacksProps {
+  language?: string;
   onCardsAdded: () => void;
 }
 
-export default function StarterPacks({ onCardsAdded }: StarterPacksProps) {
+export default function StarterPacks({ language = "zh", onCardsAdded }: StarterPacksProps) {
   const [packStates, setPackStates] = useState<
     Record<string, "idle" | "loading" | "done" | "error">
   >({});
@@ -16,13 +17,15 @@ export default function StarterPacks({ onCardsAdded }: StarterPacksProps) {
     {}
   );
 
+  const packs = starterPacksByLanguage[language] ?? [];
+
   async function addPack(pack: StarterPack) {
     setPackStates((prev) => ({ ...prev, [pack.id]: "loading" }));
     try {
       const res = await fetch("/api/flashcards/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cards: pack.cards }),
+        body: JSON.stringify({ cards: pack.cards, language }),
       });
       if (!res.ok) {
         throw new Error("Failed to add pack");
@@ -36,6 +39,19 @@ export default function StarterPacks({ onCardsAdded }: StarterPacksProps) {
     }
   }
 
+  if (packs.length === 0) {
+    return (
+      <div>
+        <h2 className="mb-1 text-lg font-semibold text-zinc-50">
+          Get Started with a Starter Pack
+        </h2>
+        <p className="mb-4 text-sm text-zinc-400">
+          Starter packs coming soon for this language!
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h2 className="mb-1 text-lg font-semibold text-zinc-50">
@@ -45,7 +61,7 @@ export default function StarterPacks({ onCardsAdded }: StarterPacksProps) {
         Add a curated set of cards to start practicing right away.
       </p>
       <div className="grid gap-4 sm:grid-cols-3">
-        {starterPacks.map((pack) => {
+        {packs.map((pack) => {
           const state = packStates[pack.id] ?? "idle";
           return (
             <div

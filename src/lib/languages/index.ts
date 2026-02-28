@@ -16,6 +16,23 @@ import type { LanguageConfig } from "./types";
 import { chineseConfig } from "./zh";
 import { spanishConfig } from "./es";
 import { japaneseConfig } from "./ja";
+import { koreanConfig } from "./ko";
+import { frenchConfig } from "./fr";
+import { germanConfig } from "./de";
+import { portugueseConfig } from "./pt";
+import { italianConfig } from "./it";
+import { russianConfig } from "./ru";
+import { arabicConfig } from "./ar";
+import { hindiConfig } from "./hi";
+import { turkishConfig } from "./tr";
+import { dutchConfig } from "./nl";
+import { swedishConfig } from "./sv";
+import { polishConfig } from "./pl";
+import { vietnameseConfig } from "./vi";
+import { greekConfig } from "./el";
+import { thaiConfig } from "./th";
+import { indonesianConfig } from "./id";
+import { norwegianConfig } from "./no";
 
 // ---------------------------------------------------------------------------
 // Registry
@@ -25,6 +42,23 @@ const LANGUAGE_REGISTRY: Record<string, LanguageConfig> = {
   zh: chineseConfig,
   es: spanishConfig,
   ja: japaneseConfig,
+  ko: koreanConfig,
+  fr: frenchConfig,
+  de: germanConfig,
+  pt: portugueseConfig,
+  it: italianConfig,
+  ru: russianConfig,
+  ar: arabicConfig,
+  hi: hindiConfig,
+  tr: turkishConfig,
+  nl: dutchConfig,
+  sv: swedishConfig,
+  pl: polishConfig,
+  vi: vietnameseConfig,
+  el: greekConfig,
+  th: thaiConfig,
+  id: indonesianConfig,
+  no: norwegianConfig,
 };
 
 // ---------------------------------------------------------------------------

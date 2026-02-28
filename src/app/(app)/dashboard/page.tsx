@@ -25,9 +25,13 @@ export default function DashboardPage() {
   const [historyData, setHistoryData] = useState<MetricsHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [langDisplay, setLangDisplay] = useState<LanguageDisplay | null>(null);
+  const [targetLanguage, setTargetLanguage] = useState<string>("zh");
 
   useEffect(() => {
-    getUserLanguageSettings().then((s) => setLangDisplay(s.language)).catch(() => {});
+    getUserLanguageSettings().then((s) => {
+      setLangDisplay(s.language);
+      setTargetLanguage(s.targetLanguage);
+    }).catch(() => {});
   }, []);
 
   const fetchStats = useCallback(async () => {
@@ -152,7 +156,7 @@ export default function DashboardPage() {
 
           {/* Starter Packs */}
           <div className="mb-8">
-            <StarterPacks onCardsAdded={fetchStats} />
+            <StarterPacks language={targetLanguage} onCardsAdded={fetchStats} />
           </div>
         </>
       ) : (

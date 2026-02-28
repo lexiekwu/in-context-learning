@@ -70,6 +70,31 @@ interface AdminMetrics {
       customerEmail: string | null;
     }>;
   };
+  retention: {
+    dauMau: number;
+    churnRate: number;
+  };
+  learning: {
+    graduationRate: number;
+    lapseRate: number;
+  };
+  quizPerformance: {
+    accuracyByState: Array<{
+      state: string;
+      total: number;
+      correct: number;
+      accuracy: number;
+    }>;
+    avgResponseTimeMs: number;
+  };
+  featureAdoption: {
+    languageDistribution: Array<{ language: string; count: number }>;
+  };
+  growthFunnel: {
+    signupToFirstCard: number;
+    firstCardToFirstQuiz: number;
+    day7Retention: number;
+  };
 }
 
 export default function AdminPage() {
@@ -120,7 +145,10 @@ export default function AdminPage() {
 
   if (!data) return null;
 
-  const { users, content, activity, dailyReviews, recentUsers, llm, revenue } = data;
+  const {
+    users, content, activity, dailyReviews, recentUsers, llm, revenue,
+    retention, learning, quizPerformance, featureAdoption, growthFunnel,
+  } = data;
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-12">
@@ -200,6 +228,122 @@ export default function AdminPage() {
           <StatCard label="Reviews (30d)" value={activity.reviewsLast30d} />
           <StatCard label="Sessions (7d)" value={activity.sessionsLast7d} />
           <StatCard label="Sessions (30d)" value={activity.sessionsLast30d} />
+        </div>
+      </Section>
+
+      {/* Retention */}
+      <Section title="Retention">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="DAU/MAU Ratio"
+            value={`${(retention.dauMau * 100).toFixed(1)}%`}
+            color="text-sky-400"
+          />
+          <StatCard
+            label="Churn Rate"
+            value={`${(retention.churnRate * 100).toFixed(1)}%`}
+            color={retention.churnRate > 0.1 ? "text-red-400" : "text-emerald-400"}
+          />
+        </div>
+      </Section>
+
+      {/* Learning Effectiveness */}
+      <Section title="Learning Effectiveness">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Graduation Rate"
+            value={`${(learning.graduationRate * 100).toFixed(1)}%`}
+            sub="Cards in REVIEW / total cards"
+            color="text-emerald-400"
+          />
+          <StatCard
+            label="Lapse Rate"
+            value={`${(learning.lapseRate * 100).toFixed(1)}%`}
+            sub="Total lapses / total reviews"
+            color={learning.lapseRate > 0.2 ? "text-amber-400" : "text-zinc-50"}
+          />
+        </div>
+      </Section>
+
+      {/* Quiz Performance */}
+      <Section title="Quiz Performance">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Avg Response Time"
+            value={`${(quizPerformance.avgResponseTimeMs / 1000).toFixed(1)}s`}
+            sub="Last 30 days"
+          />
+        </div>
+        {quizPerformance.accuracyByState.length > 0 && (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-zinc-800">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-zinc-800 bg-zinc-900 text-xs uppercase tracking-wide text-zinc-400">
+                <tr>
+                  <th className="px-4 py-3">Card State</th>
+                  <th className="px-4 py-3 text-right">Total Reviews</th>
+                  <th className="px-4 py-3 text-right">Correct</th>
+                  <th className="px-4 py-3 text-right">Accuracy</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800">
+                {quizPerformance.accuracyByState.map((row) => (
+                  <tr key={row.state} className="text-zinc-300">
+                    <td className="px-4 py-3 font-medium text-zinc-100">{row.state}</td>
+                    <td className="px-4 py-3 text-right">{row.total.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right">{row.correct.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right text-emerald-400">
+                      {(row.accuracy * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+
+      {/* Feature Adoption */}
+      <Section title="Feature Adoption">
+        {featureAdoption.languageDistribution.length > 0 && (
+          <div className="overflow-x-auto rounded-xl border border-zinc-800">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-zinc-800 bg-zinc-900 text-xs uppercase tracking-wide text-zinc-400">
+                <tr>
+                  <th className="px-4 py-3">Language</th>
+                  <th className="px-4 py-3 text-right">Flashcards</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800">
+                {featureAdoption.languageDistribution.map((row) => (
+                  <tr key={row.language} className="text-zinc-300">
+                    <td className="px-4 py-3 font-medium text-zinc-100">{row.language}</td>
+                    <td className="px-4 py-3 text-right">{row.count.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+
+      {/* Growth Funnel */}
+      <Section title="Growth Funnel">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StatCard
+            label="Signup → First Card"
+            value={`${(growthFunnel.signupToFirstCard * 100).toFixed(1)}%`}
+            color="text-sky-400"
+          />
+          <StatCard
+            label="First Card → First Quiz"
+            value={`${(growthFunnel.firstCardToFirstQuiz * 100).toFixed(1)}%`}
+            color="text-indigo-400"
+          />
+          <StatCard
+            label="Day 7 Retention"
+            value={`${(growthFunnel.day7Retention * 100).toFixed(1)}%`}
+            color="text-emerald-400"
+          />
         </div>
       </Section>
 

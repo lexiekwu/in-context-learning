@@ -47,3 +47,5 @@ next-env.d.ts
 CLAUDE.md
 e2e-auth.json
 docs/spec/pending_pm_requests.md
+docs/spec/completed_pm_requests.md
+docs/spec/questions_for_pm.md
