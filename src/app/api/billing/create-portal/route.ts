@@ -34,6 +34,10 @@ export async function POST() {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? env.NEXTAUTH_URL;
+    const parsedUrl = new URL(appUrl);
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      return NextResponse.json({ error: "Invalid app URL configuration" }, { status: 500 });
+    }
     const portalSession = await getStripe().billingPortal.sessions.create({
       customer: user.stripeCustomerId,
       return_url: `${appUrl}/settings`,

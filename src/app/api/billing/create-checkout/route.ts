@@ -42,6 +42,11 @@ export async function POST() {
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? env.NEXTAUTH_URL;
+    // Validate redirect URL is on the expected domain
+    const parsedUrl = new URL(appUrl);
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      return NextResponse.json({ error: "Invalid app URL configuration" }, { status: 500 });
+    }
     const checkoutSession = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: "subscription",

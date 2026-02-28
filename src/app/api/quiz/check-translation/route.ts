@@ -11,6 +11,7 @@ import {
 } from "@/lib/errors";
 import { getLanguageConfig } from "@/lib/languages";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { sanitizeForPrompt } from "@/lib/llm/sanitize";
 
 // ---------------------------------------------------------------------------
 // LLM prompt — focused narrowly on target word understanding
@@ -111,9 +112,9 @@ export async function POST(request: NextRequest) {
     const result = await callLLM({
       systemMessage: buildSystemMessage(languageName),
       userMessage: buildUserMessage({
-        sentence: generatedSentence,
-        referenceTranslation: generatedTranslation ?? "",
-        userTranslation,
+        sentence: sanitizeForPrompt(generatedSentence),
+        referenceTranslation: sanitizeForPrompt(generatedTranslation ?? ""),
+        userTranslation: sanitizeForPrompt(userTranslation),
         targetWord: flashcard.word,
         targetMeaning: flashcard.englishMeaning,
         languageName,

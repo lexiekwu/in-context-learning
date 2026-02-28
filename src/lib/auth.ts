@@ -18,6 +18,8 @@ import Google from "next-auth/providers/google";
  * enrichment which happens in the Node.js runtime, not in Edge middleware.
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Safe on Vercel (trusted reverse proxy). If self-hosting, set to false
+  // and configure the expected host explicitly.
   trustHost: true,
   session: { strategy: "jwt" },
 

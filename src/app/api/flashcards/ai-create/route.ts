@@ -15,6 +15,7 @@ import {
 } from "@/lib/llm/prompts";
 import { sanitizeForPrompt } from "@/lib/llm/sanitize";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { checkSubscriptionAccess } from "@/lib/subscription";
 import { getLanguageConfig, getCharacterSet } from "@/lib/languages";
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,14 @@ export async function POST(request: NextRequest) {
 
     const limited = await checkRateLimit("aiCreate", userId);
     if (limited) return limited;
+
+    const access = await checkSubscriptionAccess(userId);
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: "Your trial has expired. Please subscribe to use AI features." },
+        { status: 403 },
+      );
+    }
 
     // Parse & validate request body
     const body = await request.json();

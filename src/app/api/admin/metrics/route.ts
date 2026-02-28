@@ -3,8 +3,12 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { errorResponse, unauthorizedError } from "@/lib/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
 
-const ADMIN_EMAILS = ["lexiekwu@gmail.com"];
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "lexiekwu@gmail.com")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
 
 /**
  * GET /api/admin/metrics
@@ -14,9 +18,12 @@ const ADMIN_EMAILS = ["lexiekwu@gmail.com"];
 export async function GET() {
   try {
     const session = await auth();
-    if (!session?.user?.email || !ADMIN_EMAILS.includes(session.user.email)) {
+    if (!session?.user?.email || !ADMIN_EMAILS.includes(session.user.email.toLowerCase())) {
       throw unauthorizedError();
     }
+
+    const limited = await checkRateLimit("billing", session.user.id!);
+    if (limited) return limited;
 
     const now = new Date();
     const sevenDaysAgo = new Date(now);

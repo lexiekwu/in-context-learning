@@ -31,6 +31,9 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/llm/call", () => ({ callLLM: mockCallLLM }));
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: vi.fn(() => null) }));
+vi.mock("@/lib/subscription", () => ({
+  checkSubscriptionAccess: vi.fn(() => ({ allowed: true, status: "TRIAL", daysRemaining: 14, trialEndsAt: null })),
+}));
 
 import { POST as generateSentencePost } from "@/app/api/quiz/generate-sentence/route";
 import { POST as checkTranslationPost } from "@/app/api/quiz/check-translation/route";
