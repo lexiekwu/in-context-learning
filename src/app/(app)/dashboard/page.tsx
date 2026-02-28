@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { MetricsHistoryEntry } from "@/types";
+import { getUserLanguageSettings, type LanguageDisplay } from "@/lib/api";
 import StarterPacks from "@/components/dashboard/StarterPacks";
 
 type HistoryPeriod = "7d" | "30d" | "90d";
@@ -23,6 +24,11 @@ export default function DashboardPage() {
   const [historyPeriod, setHistoryPeriod] = useState<HistoryPeriod>("30d");
   const [historyData, setHistoryData] = useState<MetricsHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [langDisplay, setLangDisplay] = useState<LanguageDisplay | null>(null);
+
+  useEffect(() => {
+    getUserLanguageSettings().then((s) => setLangDisplay(s.language)).catch(() => {});
+  }, []);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -118,8 +124,8 @@ export default function DashboardPage() {
                   Add Cards
                 </h3>
                 <p className="mt-1 text-xs text-zinc-400">
-                  Build your vocabulary with Chinese words. Use AI to auto-fill
-                  pinyin and meanings.
+                  Build your vocabulary with {langDisplay?.name ?? "new"} words. Use AI to auto-fill
+                  {langDisplay?.isPhonetic ? " meanings" : ` ${langDisplay?.readingSystemName?.toLowerCase() ?? "readings"} and meanings`}.
                 </p>
               </div>
               <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-4">
@@ -128,8 +134,7 @@ export default function DashboardPage() {
                   Practice Daily
                 </h3>
                 <p className="mt-1 text-xs text-zinc-400">
-                  Quiz yourself with AI-generated sentences. Translate them and
-                  type pinyin.
+                  Quiz yourself with AI-generated sentences. Translate them{langDisplay?.isPhonetic ? "" : ` and type ${langDisplay?.readingSystemName?.toLowerCase() ?? "readings"}`}.
                 </p>
               </div>
               <div className="rounded-lg border border-zinc-700/50 bg-zinc-800/50 p-4">

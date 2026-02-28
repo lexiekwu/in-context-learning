@@ -17,7 +17,8 @@ import type { FlashcardResponse } from "@/types";
 
 const quickSaveSchema = z.object({
   word: z.string().min(1, "word is required"),
-  pinyin: z.string().min(1, "pinyin is required"),
+  pinyin: z.string().optional().default(""),
+  reading: z.string().optional(),
   englishMeaning: z.string().min(1, "englishMeaning is required").max(500),
 });
 
@@ -28,7 +29,7 @@ const quickSaveSchema = z.object({
 function toFlashcardResponse(card: {
   id: string;
   word: string;
-  pinyin: string;
+  reading: string | null;
   englishMeaning: string;
   exampleSentence: string | null;
   state: CardState;
@@ -40,7 +41,7 @@ function toFlashcardResponse(card: {
   return {
     id: card.id,
     word: card.word,
-    pinyin: card.pinyin,
+    pinyin: card.reading ?? "",
     englishMeaning: card.englishMeaning,
     exampleSentence: card.exampleSentence,
     state: card.state,
@@ -75,11 +76,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { word, pinyin, englishMeaning } = parsed.data;
+    const { word, pinyin, reading, englishMeaning } = parsed.data;
+    const effectiveReading = reading ?? pinyin ?? "";
 
     // Check for duplicate — if exists, return the existing card with isDuplicate flag
+    // Note: uses language default "zh" for backwards compat; should be updated when language is passed
     const existing = await db.flashcard.findUnique({
-      where: { userId_word: { userId, word } },
+      where: { userId_word_language: { userId, word, language: "zh" } },
     });
 
     if (existing) {
@@ -94,7 +97,7 @@ export async function POST(req: NextRequest) {
       data: {
         userId,
         word,
-        pinyin,
+        reading: effectiveReading || null,
         englishMeaning,
         difficulty: 0,
         stability: 0,

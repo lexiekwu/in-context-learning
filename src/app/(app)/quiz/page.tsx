@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuizStateMachine } from "@/hooks/useQuizStateMachine";
 import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 import { QuizCard } from "@/components/quiz/QuizCard";
 import { TranslationInput } from "@/components/quiz/TranslationInput";
 import { TranslationFeedback } from "@/components/quiz/TranslationFeedback";
-import { PinyinInput } from "@/components/quiz/PinyinInput";
-import { PinyinFeedback } from "@/components/quiz/PinyinFeedback";
+import { ReadingInput } from "@/components/quiz/ReadingInput";
+import { ReadingFeedback } from "@/components/quiz/ReadingFeedback";
 import { CardComplete } from "@/components/quiz/CardComplete";
 import { SessionSummary } from "@/components/quiz/SessionSummary";
 import { LoadingSkeleton } from "@/components/quiz/LoadingSkeleton";
@@ -16,7 +16,15 @@ import type { WordBreakdownEntry } from "@/types";
 import type { DailyStats } from "@/hooks/useQuizStateMachine";
 
 export default function QuizPage() {
-  const quiz = useQuizStateMachine();
+  const [langSettings, setLangSettings] = useState<api.UserLanguageSettings | null>(null);
+
+  useEffect(() => {
+    api.getUserLanguageSettings().then(setLangSettings).catch(() => {});
+  }, []);
+
+  const isPhonetic = langSettings?.language.isPhonetic ?? false;
+
+  const quiz = useQuizStateMachine({ isPhonetic });
 
   const { state: quizState, advanceFromCorrect, advanceFromCardComplete } = quiz;
   const handleSwipeLeft = useCallback(() => {
@@ -49,7 +57,7 @@ export default function QuizPage() {
       <div className="flex flex-1 flex-col items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
           <h1 className="text-3xl font-bold text-zinc-100">
-            Mandarin Quiz
+            {langSettings?.language.name ?? "Language"} Quiz
           </h1>
           <div className="mt-8 rounded-xl border border-red-800 bg-red-900/20 p-6">
             <p className="text-base text-red-200">
@@ -114,27 +122,27 @@ export default function QuizPage() {
   }
 
   const isCheckingTranslation = quiz.state === "CHECKING_TRANSLATION";
-  const isVerifyingPinyin = quiz.state === "VERIFY_PINYIN";
+  const isVerifyingReading = quiz.state === "VERIFY_READING";
   const showTranslationFeedback =
     quiz.state === "TRANSLATION_CORRECT" ||
     quiz.state === "TRANSLATION_INCORRECT" ||
     quiz.state === "RETYPING_TRANSLATION";
-  const showPinyinInput =
-    quiz.state === "PINYIN_INPUT" ||
-    quiz.state === "VERIFY_PINYIN";
-  const showPinyinFeedback =
-    quiz.state === "PINYIN_CORRECT" ||
-    quiz.state === "PINYIN_INCORRECT" ||
-    quiz.state === "RETYPING_PINYIN";
+  const showReadingInput =
+    quiz.state === "READING_INPUT" ||
+    quiz.state === "VERIFY_READING";
+  const showReadingFeedback =
+    quiz.state === "READING_CORRECT" ||
+    quiz.state === "READING_INCORRECT" ||
+    quiz.state === "RETYPING_READING";
   const showCardComplete = quiz.state === "CARD_COMPLETE";
 
   const showTranslationResult =
     showTranslationFeedback ||
-    showPinyinInput ||
-    showPinyinFeedback ||
+    showReadingInput ||
+    showReadingFeedback ||
     showCardComplete;
-  const showPinyinResult =
-    showPinyinFeedback || showCardComplete;
+  const showReadingResult =
+    showReadingFeedback || showCardComplete;
 
   return (
     <div ref={swipeRef} className="flex flex-1 flex-col">
@@ -157,7 +165,7 @@ export default function QuizPage() {
       )}
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6">
-        {/* Chinese sentence display */}
+        {/* Sentence display */}
         <QuizCard
           sentence={card.sentence.sentence}
           wordBreakdown={card.sentence.wordBreakdown}
@@ -194,25 +202,29 @@ export default function QuizPage() {
             />
           )}
 
-          {/* Pinyin input */}
-          {showPinyinInput && (
-            <PinyinInput
+          {/* Reading input (hidden for phonetic languages) */}
+          {!quiz.isPhonetic && showReadingInput && (
+            <ReadingInput
               targetWord={card.flashcard.word}
-              onSubmit={quiz.submitPinyin}
-              isLoading={isVerifyingPinyin}
-              disabled={isVerifyingPinyin}
+              onSubmit={quiz.submitReading}
+              isLoading={isVerifyingReading}
+              disabled={isVerifyingReading}
+              readingSystemName={langSettings?.language.readingSystemName ?? undefined}
+              placeholder={langSettings?.language.readingPlaceholder ?? undefined}
+              instructions={langSettings?.language.readingInstructions ?? undefined}
             />
           )}
 
-          {/* Pinyin feedback */}
-          {showPinyinResult && card.pinyinResult && (
-            <PinyinFeedback
-              result={card.pinyinResult}
-              userPinyin={card.userPinyin}
+          {/* Reading feedback (hidden for phonetic languages) */}
+          {!quiz.isPhonetic && showReadingResult && card.readingResult && (
+            <ReadingFeedback
+              result={card.readingResult}
+              userReading={card.userReading}
               targetWord={card.flashcard.word}
               onContinue={quiz.advanceFromCorrect}
-              onRetypeSuccess={quiz.retypePinyin}
-              readonly={!showPinyinFeedback}
+              onRetypeSuccess={quiz.retypeReading}
+              readonly={!showReadingFeedback}
+              readingSystemName={langSettings?.language.readingSystemName ?? undefined}
             />
           )}
 

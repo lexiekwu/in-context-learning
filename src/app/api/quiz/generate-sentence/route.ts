@@ -9,14 +9,18 @@ import {
   notFoundError,
 } from "@/lib/errors";
 import { callLLM } from "@/lib/llm/call";
-import { SentenceGenerationResponseSchema } from "@/lib/llm/schemas";
-import type { SentenceGenerationResponse } from "@/lib/llm/schemas";
+import {
+  SentenceGenerationResponseSchema,
+  createSentenceGenerationSchema,
+} from "@/lib/llm/schemas";
+
 import {
   sentenceGenerationSystemMessage,
   sentenceGenerationUserMessage,
 } from "@/lib/llm/prompts";
 import { sanitizeForPrompt } from "@/lib/llm/sanitize";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getLanguageConfig, getCharacterSet } from "@/lib/languages";
 
 // ---------------------------------------------------------------------------
 // Request validation
@@ -91,19 +95,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get character set from user profile
+    // Get language settings from user profile
     const user = await db.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { characterSet: true },
+      select: { targetLanguage: true, languageVariant: true },
     });
-    const characterSet = user.characterSet.toLowerCase() as "traditional" | "simplified";
+
+    const langCode = user.targetLanguage ?? "zh";
+    const langConfig = getLanguageConfig(langCode);
+    const characterSet = getCharacterSet(langCode, user.languageVariant) ?? "traditional";
+
+    // Pick the right response schema based on language type
+    const responseSchema = createSentenceGenerationSchema(langCode);
 
     // Dev fallback: if POE_API_KEY is not configured or is a placeholder, return mock data
     const poeKey = process.env.POE_API_KEY;
     if (!poeKey || poeKey.startsWith("your")) {
       const word = flashcard.word;
       const meaning = flashcard.englishMeaning;
-      const pin = flashcard.pinyin;
+      const pin = flashcard.reading ?? "";
 
       // Pick a varied template based on flashcard ID hash
       const templates = [
@@ -175,15 +185,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Call LLM
-    const result: SentenceGenerationResponse = await callLLM({
-      systemMessage: sentenceGenerationSystemMessage(characterSet),
+    const result = await callLLM({
+      systemMessage: sentenceGenerationSystemMessage(langCode, user.languageVariant ?? undefined),
       userMessage: sentenceGenerationUserMessage({
         targetWord: sanitizeForPrompt(flashcard.word),
-        pinyin: sanitizeForPrompt(flashcard.pinyin),
+        pinyin: sanitizeForPrompt(flashcard.reading ?? ""),
         meaning: sanitizeForPrompt(flashcard.englishMeaning),
         characterSet,
+        language: langCode,
       }),
-      schema: SentenceGenerationResponseSchema,
+      schema: responseSchema,
       temperature: 0.7,
       maxTokens: 2000,
       purpose: "generate-sentence",

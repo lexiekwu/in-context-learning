@@ -42,9 +42,11 @@ const listQuerySchema = z.object({
 
 const createFlashcardSchema = z.object({
   word: z.string().min(1, "word is required"),
-  pinyin: z.string().min(1, "pinyin is required"),
+  pinyin: z.string().optional().default(""),
+  reading: z.string().optional(),
   englishMeaning: z.string().min(1, "englishMeaning is required").max(500),
   exampleSentence: z.string().optional(),
+  language: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -54,7 +56,7 @@ const createFlashcardSchema = z.object({
 function toFlashcardResponse(card: {
   id: string;
   word: string;
-  pinyin: string;
+  reading: string | null;
   englishMeaning: string;
   exampleSentence: string | null;
   state: CardState;
@@ -66,7 +68,7 @@ function toFlashcardResponse(card: {
   return {
     id: card.id,
     word: card.word,
-    pinyin: card.pinyin,
+    pinyin: card.reading ?? "",
     englishMeaning: card.englishMeaning,
     exampleSentence: card.exampleSentence,
     state: card.state,
@@ -123,7 +125,7 @@ export async function GET(req: NextRequest) {
     if (search) {
       where.OR = [
         { word: { contains: search, mode: "insensitive" } },
-        { pinyin: { contains: search, mode: "insensitive" } },
+        { reading: { contains: search, mode: "insensitive" } },
         { englishMeaning: { contains: search, mode: "insensitive" } },
       ];
     }
@@ -192,11 +194,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { word, pinyin, englishMeaning, exampleSentence } = parsed.data;
+    const { word, pinyin, reading, englishMeaning, exampleSentence } = parsed.data;
+    // Use reading field if provided, fall back to pinyin for backward compat
+    const effectiveReading = reading ?? pinyin ?? "";
 
-    // Check for duplicate
+    // Determine language: use provided language, or fall back to user's target language
+    let language = parsed.data.language;
+    if (!language) {
+      const user = await db.user.findUnique({
+        where: { id: userId },
+        select: { targetLanguage: true },
+      });
+      language = user?.targetLanguage ?? "zh";
+    }
     const existing = await db.flashcard.findUnique({
-      where: { userId_word: { userId, word } },
+      where: { userId_word_language: { userId, word, language } },
     });
     if (existing) {
       throw duplicateError(
@@ -208,7 +220,8 @@ export async function POST(req: NextRequest) {
       data: {
         userId,
         word,
-        pinyin,
+        language,
+        reading: effectiveReading || null,
         englishMeaning,
         exampleSentence: exampleSentence ?? null,
         difficulty: 0,

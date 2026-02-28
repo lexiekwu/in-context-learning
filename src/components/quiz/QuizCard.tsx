@@ -183,8 +183,8 @@ export function QuizCard({
 
       <p className="mt-3 text-xs text-zinc-500">
         {typeof window !== "undefined" && "ontouchstart" in window
-          ? "Tap and hold any word for pinyin + meaning"
-          : "Hover over any word for pinyin + meaning"}
+          ? "Tap and hold any word for details"
+          : "Hover over any word for details"}
       </p>
 
       {tooltip && (
@@ -201,9 +201,11 @@ export function QuizCard({
           <p className="text-lg font-semibold text-zinc-100">
             {tooltip.word.word}
           </p>
-          <p className="font-mono text-sm text-indigo-400">
-            {tooltip.word.pinyin}
-          </p>
+          {tooltip.word.pinyin && (
+            <p className="font-mono text-sm text-indigo-400">
+              {tooltip.word.pinyin}
+            </p>
+          )}
           <p className="text-sm text-zinc-400">
             {tooltip.word.meaning}
           </p>

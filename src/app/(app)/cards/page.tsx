@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { CardState, FlashcardResponse } from "@/types";
-import { getFlashcards, type GetFlashcardsParams } from "@/lib/api";
+import { getFlashcards, getUserLanguageSettings, type GetFlashcardsParams, type LanguageDisplay } from "@/lib/api";
 import CardSearch from "@/components/cards/CardSearch";
 import CardStateFilter from "@/components/cards/CardStateFilter";
 import CardItem from "@/components/cards/CardItem";
@@ -33,6 +33,13 @@ export default function CardsPage() {
 
   // Dialog state
   const [createOpen, setCreateOpen] = useState(false);
+
+  // Language settings
+  const [langDisplay, setLangDisplay] = useState<LanguageDisplay | null>(null);
+
+  useEffect(() => {
+    getUserLanguageSettings().then((s) => setLangDisplay(s.language)).catch(() => {});
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Fetch cards (resets on filter/sort changes)
@@ -143,7 +150,11 @@ export default function CardsPage() {
 
       {/* Search + Filters */}
       <div className="space-y-3">
-        <CardSearch value={search} onChange={setSearch} />
+        <CardSearch
+          value={search}
+          onChange={setSearch}
+          placeholder={langDisplay?.isPhonetic ? "Search by word or meaning..." : `Search by word, ${langDisplay?.readingSystemName?.toLowerCase() ?? "reading"}, or meaning...`}
+        />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardStateFilter selected={stateFilter} onChange={setStateFilter} />
           <div className="flex items-center gap-2">
@@ -236,6 +247,7 @@ export default function CardsPage() {
               card={card}
               onUpdated={handleCardUpdated}
               onDeleted={handleCardDeleted}
+              readingLabel={langDisplay?.isPhonetic ? null : (langDisplay?.readingSystemName ?? "Reading")}
             />
           ))}
         </div>

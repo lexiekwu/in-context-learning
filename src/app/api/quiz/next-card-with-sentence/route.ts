@@ -18,6 +18,7 @@ import {
 } from "@/lib/llm/prompts";
 import { sanitizeForPrompt } from "@/lib/llm/sanitize";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getCharacterSet } from "@/lib/languages";
 
 const querySchema = z.object({
   sessionId: z.string().uuid("sessionId must be a valid UUID"),
@@ -60,13 +61,20 @@ export async function GET(request: NextRequest) {
     const { sessionId, excludeCardId } = parsed.data;
     const extraExcludeIds = excludeCardId ? [excludeCardId] : [];
 
+    // Get user's active language for filtering cards
+    const userRecord = await db.user.findUnique({
+      where: { id: userId },
+      select: { targetLanguage: true, languageVariant: true },
+    });
+    const activeLang = userRecord?.targetLanguage ?? "zh";
+
     // Verify session belongs to user + get next card in parallel
     const [studySession, cardResult] = await Promise.all([
       db.studySession.findUnique({
         where: { id: sessionId },
         select: { userId: true },
       }),
-      getNextDueCard(userId, sessionId, extraExcludeIds),
+      getNextDueCard(userId, sessionId, extraExcludeIds, activeLang),
     ]);
 
     if (!studySession || studySession.userId !== userId) {
@@ -111,21 +119,16 @@ export async function GET(request: NextRequest) {
     }
 
     if (!sentence) {
-      // Get character set and generate sentence
-      const user = await db.user.findUniqueOrThrow({
-        where: { id: userId },
-        select: { characterSet: true },
-      });
-      const characterSet = user.characterSet.toLowerCase() as
-        | "traditional"
-        | "simplified";
+      // Get language settings for sentence generation
+      const langCode = activeLang;
+      const characterSet = getCharacterSet(langCode, userRecord?.languageVariant) ?? "traditional";
 
       // Dev fallback for missing API key
       const poeKey = process.env.POE_API_KEY;
       if (!poeKey || poeKey.startsWith("your")) {
         const word = flashcard.word;
         const meaning = flashcard.englishMeaning;
-        const pin = flashcard.pinyin;
+        const pin = flashcard.reading ?? "";
         const templates = [
           {
             sentence: `他很喜歡${word}。`,
@@ -160,7 +163,7 @@ export async function GET(request: NextRequest) {
           systemMessage: sentenceGenerationSystemMessage(characterSet),
           userMessage: sentenceGenerationUserMessage({
             targetWord: sanitizeForPrompt(flashcard.word),
-            pinyin: sanitizeForPrompt(flashcard.pinyin),
+            pinyin: sanitizeForPrompt(flashcard.reading ?? ""),
             meaning: sanitizeForPrompt(flashcard.englishMeaning),
             characterSet,
           }),
@@ -176,7 +179,7 @@ export async function GET(request: NextRequest) {
       flashcard: {
         id: flashcard.id,
         word: flashcard.word,
-        pinyin: flashcard.pinyin,
+        pinyin: flashcard.reading ?? "",
         englishMeaning: flashcard.englishMeaning,
         state: flashcard.state,
         reps: flashcard.reps,

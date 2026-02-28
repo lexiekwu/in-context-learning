@@ -25,6 +25,7 @@ const updateFlashcardSchema = z
   .object({
     word: z.string().min(1).optional(),
     pinyin: z.string().min(1).optional(),
+    reading: z.string().min(1).optional(),
     englishMeaning: z.string().min(1).max(500).optional(),
     exampleSentence: z.string().nullable().optional(),
   })
@@ -39,7 +40,7 @@ const updateFlashcardSchema = z
 function toFlashcardResponse(card: {
   id: string;
   word: string;
-  pinyin: string;
+  reading: string | null;
   englishMeaning: string;
   exampleSentence: string | null;
   state: CardState;
@@ -51,7 +52,7 @@ function toFlashcardResponse(card: {
   return {
     id: card.id,
     word: card.word,
-    pinyin: card.pinyin,
+    pinyin: card.reading ?? "",
     englishMeaning: card.englishMeaning,
     exampleSentence: card.exampleSentence,
     state: card.state,
@@ -106,12 +107,17 @@ export async function PUT(
       throw notFoundError("Flashcard", id);
     }
 
-    const data = parsed.data;
+    const { reading, pinyin: _pinyin, ...restData } = parsed.data;
+    // Map "reading" or legacy "pinyin" to the DB "reading" column if provided
+    const effectiveReading = reading ?? _pinyin;
+    const data = effectiveReading !== undefined
+      ? { ...restData, reading: effectiveReading }
+      : restData;
 
     // If word is being changed, check for duplicate
     if (data.word && data.word !== existing.word) {
       const duplicate = await db.flashcard.findUnique({
-        where: { userId_word: { userId, word: data.word } },
+        where: { userId_word_language: { userId, word: data.word, language: existing.language } },
       });
       if (duplicate) {
         throw duplicateError(
@@ -125,7 +131,7 @@ export async function PUT(
       data,
     });
 
-    return NextResponse.json({ card: toFlashcardResponse(updated) });
+    return NextResponse.json({ flashcard: toFlashcardResponse(updated) });
   } catch (err) {
     return errorResponse(err);
   }

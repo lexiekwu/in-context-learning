@@ -31,6 +31,7 @@ export async function getNextDueCard(
   userId: string,
   sessionId: string,
   extraExcludeIds: string[] = [],
+  language?: string,
 ): Promise<{
   card: Flashcard | null;
   cardsRemaining: number;
@@ -54,10 +55,14 @@ export async function getNextDueCard(
     newCardLimit - todayStats.newCardsStudied
   );
 
+  // Language filter — only quiz cards in the user's active language
+  const langFilter = language ? { language } : {};
+
   // Priority 1: Learning/Relearning cards that are due
   const learningCards = await db.flashcard.findMany({
     where: {
       userId,
+      ...langFilter,
       due: { lte: now },
       state: { in: ["LEARNING", "RELEARNING"] },
       id: { notIn: sessionCardIds },
@@ -90,6 +95,7 @@ export async function getNextDueCard(
   const reviewCards = await db.flashcard.findMany({
     where: {
       userId,
+      ...langFilter,
       due: { lte: now },
       state: "REVIEW",
       id: { notIn: sessionCardIds },
@@ -105,6 +111,7 @@ export async function getNextDueCard(
     const newCards = await db.flashcard.findMany({
       where: {
         userId,
+        ...langFilter,
         state: "NEW",
         id: { notIn: sessionCardIds },
       },
@@ -147,6 +154,7 @@ export async function getNextDueCard(
     const newCards = await db.flashcard.findMany({
       where: {
         userId,
+        ...langFilter,
         state: "NEW",
         id: { notIn: sessionCardIds },
       },
@@ -173,6 +181,7 @@ export async function getNextDueCard(
   const nextDueCard = await db.flashcard.findFirst({
     where: {
       userId,
+      ...langFilter,
       state: { not: "NEW" },
       id: { notIn: sessionCardIds },
     },

@@ -53,9 +53,11 @@ interface CardItemProps {
   card: FlashcardResponse;
   onUpdated: (card: FlashcardResponse) => void;
   onDeleted: (id: string) => void;
+  /** Reading system label (e.g. "Pinyin", "Romaji"). Hidden when null (phonetic languages). */
+  readingLabel?: string | null;
 }
 
-export default function CardItem({ card, onUpdated, onDeleted }: CardItemProps) {
+export default function CardItem({ card, onUpdated, onDeleted, readingLabel }: CardItemProps) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -127,11 +129,13 @@ export default function CardItem({ card, onUpdated, onDeleted }: CardItemProps) 
           {card.word}
         </span>
 
-        {/* Pinyin + meaning */}
+        {/* Reading + meaning */}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm text-zinc-400">
-            {card.pinyin}
-          </p>
+          {card.pinyin && readingLabel !== null && (
+            <p className="truncate text-sm text-zinc-400">
+              {card.pinyin}
+            </p>
+          )}
           <p className="truncate text-sm text-zinc-300">
             {card.englishMeaning}
           </p>
@@ -187,9 +191,10 @@ export default function CardItem({ card, onUpdated, onDeleted }: CardItemProps) 
                   className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
+              {readingLabel !== null && (
               <div>
                 <label className="mb-1 block text-xs font-medium text-zinc-400">
-                  Pinyin
+                  {readingLabel ?? "Reading"}
                 </label>
                 <input
                   type="text"
@@ -198,6 +203,7 @@ export default function CardItem({ card, onUpdated, onDeleted }: CardItemProps) 
                   className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
+              )}
               <div>
                 <label className="mb-1 block text-xs font-medium text-zinc-400">
                   English Meaning

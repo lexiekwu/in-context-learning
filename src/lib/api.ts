@@ -11,6 +11,7 @@ import type {
   NextCardWithSentenceResponse,
   GenerateSentenceResponse,
   CheckTranslationResponse,
+  CheckReadingResponse,
   CheckPinyinResponse,
   SubmitResultInput,
   SubmitResultResponse,
@@ -120,15 +121,34 @@ export function checkTranslation(
   );
 }
 
-/** POST /api/quiz/check-pinyin — Server-side pinyin string comparison */
-export function checkPinyin(
+/** POST /api/quiz/check-reading — Server-side reading verification (pinyin, romaji, etc.) */
+export function checkReading(
+  flashcardId: string,
+  userReading: string,
+): Promise<CheckReadingResponse> {
+  return fetchJson<CheckReadingResponse>("/api/quiz/check-reading", {
+    method: "POST",
+    body: JSON.stringify({ flashcardId, userReading }),
+  });
+}
+
+/**
+ * @deprecated Use checkReading() instead.
+ * POST /api/quiz/check-pinyin — Server-side pinyin string comparison
+ */
+export async function checkPinyin(
   flashcardId: string,
   userPinyin: string,
 ): Promise<CheckPinyinResponse> {
-  return fetchJson<CheckPinyinResponse>("/api/quiz/check-pinyin", {
+  const result = await fetchJson<CheckReadingResponse>("/api/quiz/check-reading", {
     method: "POST",
-    body: JSON.stringify({ flashcardId, userPinyin }),
+    body: JSON.stringify({ flashcardId, userReading: userPinyin }),
   });
+  // Map new response shape to legacy shape for backward compatibility
+  return {
+    correct: result.correct,
+    expectedPinyin: result.expectedReading,
+  };
 }
 
 /** POST /api/quiz/submit-result — Submit final card result with FSRS rating */
@@ -276,6 +296,31 @@ export function createPortal(): Promise<{ portalUrl: string }> {
   return fetchJson<{ portalUrl: string }>("/api/billing/create-portal", {
     method: "POST",
   });
+}
+
+// ---------------------------------------------------------------------------
+// User settings
+// ---------------------------------------------------------------------------
+
+export interface LanguageDisplay {
+  name: string;
+  isPhonetic: boolean;
+  exampleWord: string;
+  exampleMeaning: string;
+  readingSystemName: string | null;
+  readingPlaceholder: string | null;
+  readingInstructions: string | null;
+}
+
+export interface UserLanguageSettings {
+  targetLanguage: string;
+  languageVariant: string | null;
+  language: LanguageDisplay;
+}
+
+/** GET /api/user/settings — Get user language settings */
+export async function getUserLanguageSettings(): Promise<UserLanguageSettings> {
+  return fetchJson<UserLanguageSettings>("/api/user/settings");
 }
 
 export { ApiError };

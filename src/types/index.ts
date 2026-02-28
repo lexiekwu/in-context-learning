@@ -9,13 +9,12 @@
 
 import type {
   CardState,
-  CharacterSet,
   Rating,
   SubscriptionStatus,
 } from "@/generated/prisma/client";
 
 // Re-export Prisma enums for convenience
-export type { CardState, CharacterSet, Rating, SubscriptionStatus };
+export type { CardState, Rating, SubscriptionStatus };
 
 // ---------------------------------------------------------------------------
 // Auth / Session
@@ -59,15 +58,23 @@ export interface FlashcardScheduleResponse {
 /** Body for POST /api/flashcards */
 export interface CreateFlashcardInput {
   word: string;
-  pinyin: string;
+  /** @deprecated Use reading instead */
+  pinyin?: string;
+  /** Reading/pronunciation — optional for phonetic languages */
+  reading?: string;
   englishMeaning: string;
   exampleSentence?: string;
+  /** Language code (e.g. "zh", "ja", "es") */
+  language?: string;
 }
 
 /** Body for PUT /api/flashcards/:id */
 export interface UpdateFlashcardInput {
   word?: string;
+  /** @deprecated Use reading instead */
   pinyin?: string;
+  /** Reading/pronunciation — optional for phonetic languages */
+  reading?: string;
   englishMeaning?: string;
   exampleSentence?: string | null;
 }
@@ -109,7 +116,9 @@ export interface NextCardResponse {
 /** Word breakdown entry from LLM sentence generation */
 export interface WordBreakdownEntry {
   word: string;
-  pinyin: string;
+  /** Reading/pronunciation (pinyin for Chinese, romaji for Japanese, etc.) */
+  pinyin?: string;
+  reading?: string;
   meaning: string;
   isTarget?: boolean;
 }
@@ -135,7 +144,15 @@ export interface CheckTranslationResponse {
   correct: boolean;
 }
 
-/** POST /api/quiz/check-pinyin response */
+/** POST /api/quiz/check-reading response */
+export interface CheckReadingResponse {
+  correct: boolean;
+  expectedReading: string;
+  correctReading: string;
+  feedback?: string;
+}
+
+/** @deprecated Use CheckReadingResponse instead */
 export interface CheckPinyinResponse {
   correct: boolean;
   expectedPinyin: string;
@@ -150,8 +167,14 @@ export interface SubmitResultInput {
   userTranslation: string;
   correctTranslation: string;
   translationCorrect: boolean;
-  userPinyin: string;
-  pinyinCorrect: boolean;
+  /** Reading input (pinyin, romaji, etc.) — optional for phonetic languages */
+  userReading?: string | null;
+  /** Whether the reading was correct — optional for phonetic languages */
+  readingCorrect?: boolean | null;
+  /** @deprecated Use userReading instead */
+  userPinyin?: string | null;
+  /** @deprecated Use readingCorrect instead */
+  pinyinCorrect?: boolean | null;
   responseTimeMs?: number;
 }
 
@@ -233,7 +256,10 @@ export interface BillingStatusResponse {
 export interface AiCardSuggestionResponse {
   suggestion: {
     word: string;
+    /** @deprecated Use reading instead */
     pinyin: string;
+    /** Reading/pronunciation field */
+    reading: string;
     englishMeaning: string;
     exampleSentence: string;
   };

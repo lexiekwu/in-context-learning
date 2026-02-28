@@ -18,11 +18,6 @@ enum SubscriptionStatus {
   CANCELLED
 }
 
-enum CharacterSet {
-  TRADITIONAL
-  SIMPLIFIED
-}
-
 enum CardState {
   NEW
   LEARNING
@@ -45,7 +40,8 @@ model User {
   name                 String
   avatarUrl            String?
   googleId             String             @unique
-  characterSet         CharacterSet       @default(TRADITIONAL)
+  targetLanguage       String             @default("zh")
+  languageVariant      String?            @default("TRADITIONAL")
   subscriptionStatus   SubscriptionStatus @default(TRIAL)
   trialEndsAt          DateTime           @default(dbgenerated("now() + interval '7 days'"))
   stripeCustomerId     String?            @unique
@@ -64,7 +60,8 @@ model Flashcard {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId          String    @db.Uuid
   word            String
-  pinyin          String
+  language        String    @default("zh")
+  reading         String?
   englishMeaning  String
   exampleSentence String?
   difficulty      Float     @default(0)
@@ -82,8 +79,8 @@ model Flashcard {
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   reviewLogs ReviewLog[]
 
-  @@unique([userId, word])
-  @@index([userId, due])
+  @@unique([userId, word, language])
+  @@index([userId, language, due])
 }
 
 model ReviewLog {
@@ -97,8 +94,8 @@ model ReviewLog {
   userTranslation      String
   correctTranslation   String
   translationCorrect   Boolean
-  userPinyin           String
-  pinyinCorrect        Boolean
+  userReading          String?
+  readingCorrect       Boolean?
   overallRating        Rating
   reviewedAt           DateTime  @default(now())
   responseTimeMs       Int?

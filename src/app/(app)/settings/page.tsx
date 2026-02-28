@@ -3,17 +3,44 @@
 import { useSession, signOut } from "@/lib/auth-client";
 import { useEffect, useState } from "react";
 
-type CharacterSet = "TRADITIONAL" | "SIMPLIFIED";
+const LANGUAGES = [
+  { code: "zh", name: "Chinese", nativeName: "中文" },
+  { code: "ja", name: "Japanese", nativeName: "日本語" },
+  { code: "ko", name: "Korean", nativeName: "한국어" },
+  { code: "es", name: "Spanish", nativeName: "Español" },
+  { code: "fr", name: "French", nativeName: "Français" },
+  { code: "de", name: "German", nativeName: "Deutsch" },
+];
+
+// Languages that have variant options
+const LANGUAGE_VARIANTS: Record<
+  string,
+  { label: string; options: { value: string; display: string; example: string }[] }
+> = {
+  zh: {
+    label: "Character Set",
+    options: [
+      { value: "TRADITIONAL", display: "Traditional", example: "繁體字" },
+      { value: "SIMPLIFIED", display: "Simplified", example: "简体字" },
+    ],
+  },
+};
 
 export default function SettingsPage() {
   const { data: session } = useSession();
-  const [characterSet, setCharacterSet] = useState<CharacterSet>("TRADITIONAL");
+  const [targetLanguage, setTargetLanguage] = useState("zh");
+  const [languageVariant, setLanguageVariant] = useState<string | null>("TRADITIONAL");
   const [saving, setSaving] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [showLanguageWarning, setShowLanguageWarning] = useState(false);
+  const [pendingLanguage, setPendingLanguage] = useState<string | null>(null);
+
+  // Track the saved language to detect changes
+  const [savedLanguage, setSavedLanguage] = useState("zh");
 
   // Fetch current settings
   useEffect(() => {
@@ -22,10 +49,12 @@ export default function SettingsPage() {
         const res = await fetch("/api/user/settings");
         if (res.ok) {
           const data = await res.json();
-          setCharacterSet(data.characterSet);
+          setTargetLanguage(data.targetLanguage ?? "zh");
+          setSavedLanguage(data.targetLanguage ?? "zh");
+          setLanguageVariant(data.languageVariant ?? (data.targetLanguage === "zh" || !data.targetLanguage ? "TRADITIONAL" : null));
         }
       } catch {
-        // Use default
+        // Use defaults
       } finally {
         setLoadingSettings(false);
       }
@@ -33,8 +62,10 @@ export default function SettingsPage() {
     loadSettings();
   }, []);
 
-  async function handleSave(newSet: CharacterSet) {
-    setCharacterSet(newSet);
+  async function saveSettings(updates: {
+    targetLanguage?: string;
+    languageVariant?: string | null;
+  }) {
     setSaving(true);
     setMessage(null);
 
@@ -42,7 +73,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/user/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ characterSet: newSet }),
+        body: JSON.stringify(updates),
       });
 
       if (!res.ok) {
@@ -50,6 +81,7 @@ export default function SettingsPage() {
         throw new Error(data.error ?? "Failed to save settings");
       }
 
+      setSavedLanguage(updates.targetLanguage ?? savedLanguage);
       setMessage({ type: "success", text: "Settings saved." });
     } catch (err) {
       setMessage({
@@ -61,7 +93,45 @@ export default function SettingsPage() {
     }
   }
 
+  function handleLanguageChange(newLanguageCode: string) {
+    // If user has cards and is changing language, show warning
+    if (newLanguageCode !== savedLanguage) {
+      setPendingLanguage(newLanguageCode);
+      setShowLanguageWarning(true);
+      return;
+    }
+
+    applyLanguageChange(newLanguageCode);
+  }
+
+  function applyLanguageChange(newLanguageCode: string) {
+    setTargetLanguage(newLanguageCode);
+    setShowLanguageWarning(false);
+    setPendingLanguage(null);
+
+    // Set default variant for the new language
+    const variants = LANGUAGE_VARIANTS[newLanguageCode];
+    const newVariant = variants ? variants.options[0].value : null;
+    setLanguageVariant(newVariant);
+
+    saveSettings({
+      targetLanguage: newLanguageCode,
+      languageVariant: newVariant,
+    });
+  }
+
+  function handleVariantChange(newVariant: string) {
+    setLanguageVariant(newVariant);
+    saveSettings({ languageVariant: newVariant });
+  }
+
+  function dismissWarning() {
+    setShowLanguageWarning(false);
+    setPendingLanguage(null);
+  }
+
   const user = session?.user;
+  const variantConfig = LANGUAGE_VARIANTS[targetLanguage];
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-12">
@@ -104,37 +174,94 @@ export default function SettingsPage() {
         <SubscriptionSection />
       </section>
 
-      {/* Character Set */}
+      {/* Language */}
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-zinc-400">
-          Character Set
+          Language
         </h2>
         <p className="mb-5 text-sm text-zinc-500">
-          Choose whether AI-generated sentences use traditional or simplified
-          Chinese characters.
+          Choose the language you are studying. AI-generated content will use
+          this language.
         </p>
 
         {loadingSettings ? (
-          <div className="h-12 w-48 animate-pulse rounded-lg bg-zinc-800" />
+          <div className="h-12 w-64 animate-pulse rounded-lg bg-zinc-800" />
         ) : (
-          <div className="flex gap-3">
-            <CharacterSetOption
-              label="Traditional"
-              example="繁體字"
-              value="TRADITIONAL"
-              current={characterSet}
+          <>
+            {/* Language Picker */}
+            <select
+              value={targetLanguage}
+              onChange={(e) => handleLanguageChange(e.target.value)}
               disabled={saving}
-              onSelect={handleSave}
-            />
-            <CharacterSetOption
-              label="Simplified"
-              example="简体字"
-              value="SIMPLIFIED"
-              current={characterSet}
-              disabled={saving}
-              onSelect={handleSave}
-            />
-          </div>
+              className={`w-full max-w-xs appearance-none rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 outline-none transition-colors hover:border-zinc-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${
+                saving ? "cursor-wait opacity-60" : "cursor-pointer"
+              }`}
+            >
+              {LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.nativeName} ({lang.name})
+                </option>
+              ))}
+            </select>
+
+            {/* Language change warning */}
+            {showLanguageWarning && pendingLanguage && (
+              <div className="mt-4 rounded-lg border border-amber-700/50 bg-amber-950/30 p-4">
+                <p className="text-sm text-amber-300">
+                  Changing your language will not affect your existing flashcards
+                  -- they will remain tagged with their original language. New
+                  AI-generated content will use the new language.
+                </p>
+                <div className="mt-3 flex gap-3">
+                  <button
+                    onClick={() => applyLanguageChange(pendingLanguage)}
+                    disabled={saving}
+                    className="inline-flex min-h-8 items-center rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    Change language
+                  </button>
+                  <button
+                    onClick={dismissWarning}
+                    disabled={saving}
+                    className="inline-flex min-h-8 items-center rounded-lg border border-zinc-700 px-4 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-800 hover:text-zinc-100 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Conditional Variant Picker */}
+            {variantConfig && !showLanguageWarning && (
+              <div className="mt-6">
+                <h3 className="mb-1 text-sm font-medium text-zinc-300">
+                  {variantConfig.label}
+                </h3>
+                <div className="mt-3 flex gap-3">
+                  {variantConfig.options.map((option) => {
+                    const isActive = languageVariant === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        onClick={() => handleVariantChange(option.value)}
+                        disabled={saving}
+                        className={`flex flex-col items-center gap-1 rounded-xl border px-6 py-4 text-center transition-colors ${
+                          isActive
+                            ? "border-indigo-500 bg-indigo-950/40 text-zinc-50"
+                            : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+                        } ${saving ? "cursor-wait opacity-60" : "cursor-pointer"}`}
+                      >
+                        <span className="text-2xl">{option.example}</span>
+                        <span className="text-sm font-medium">
+                          {option.display}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Status message */}
@@ -149,39 +276,6 @@ export default function SettingsPage() {
         )}
       </section>
     </div>
-  );
-}
-
-function CharacterSetOption({
-  label,
-  example,
-  value,
-  current,
-  disabled,
-  onSelect,
-}: {
-  label: string;
-  example: string;
-  value: CharacterSet;
-  current: CharacterSet;
-  disabled: boolean;
-  onSelect: (v: CharacterSet) => void;
-}) {
-  const isActive = value === current;
-
-  return (
-    <button
-      onClick={() => onSelect(value)}
-      disabled={disabled}
-      className={`flex flex-col items-center gap-1 rounded-xl border px-6 py-4 text-center transition-colors ${
-        isActive
-          ? "border-indigo-500 bg-indigo-950/40 text-zinc-50"
-          : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
-      } ${disabled ? "cursor-wait opacity-60" : "cursor-pointer"}`}
-    >
-      <span className="text-2xl">{example}</span>
-      <span className="text-sm font-medium">{label}</span>
-    </button>
   );
 }
 

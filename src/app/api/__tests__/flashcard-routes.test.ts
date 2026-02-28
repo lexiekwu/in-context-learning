@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks — vi.hoisted ensures variables are available when vi.mock factories run
 // ---------------------------------------------------------------------------
 
-const { mockAuth, mockDbFlashcard, mockDbReviewLog, mockDbStudySession } = vi.hoisted(() => ({
+const { mockAuth, mockDbFlashcard, mockDbReviewLog, mockDbStudySession, mockDbUser } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
   mockDbFlashcard: {
     findFirst: vi.fn(),
@@ -22,6 +22,9 @@ const { mockAuth, mockDbFlashcard, mockDbReviewLog, mockDbStudySession } = vi.ho
   mockDbStudySession: {
     findMany: vi.fn(),
   },
+  mockDbUser: {
+    findUnique: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -33,6 +36,7 @@ vi.mock("@/lib/db", () => ({
     flashcard: mockDbFlashcard,
     reviewLog: mockDbReviewLog,
     studySession: mockDbStudySession,
+    user: mockDbUser,
   },
 }));
 
@@ -95,7 +99,8 @@ function mockFlashcard(overrides: Record<string, unknown> = {}) {
     id: TEST_CARD_ID,
     userId: TEST_USER_ID,
     word: "你好",
-    pinyin: "ni3hao3",
+    reading: "ni3hao3",
+    language: "zh",
     englishMeaning: "hello",
     exampleSentence: null,
     state: "NEW" as const,
@@ -119,6 +124,8 @@ function mockFlashcard(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: user has Chinese as target language
+  mockDbUser.findUnique.mockResolvedValue({ targetLanguage: "zh" });
 });
 
 // ---------------------------------------------------------------------------
@@ -241,8 +248,8 @@ describe("PUT /api/flashcards/[id]", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.card).toBeDefined();
-    expect(json.card.englishMeaning).toBe("hello (greeting)");
+    expect(json.flashcard).toBeDefined();
+    expect(json.flashcard.englishMeaning).toBe("hello (greeting)");
   });
 
   it("returns 404 for non-existent card", async () => {
