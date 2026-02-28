@@ -223,16 +223,16 @@ export async function GET() {
     }
 
     // PM-critical metrics (separate try/catch)
-    let retention = { dauMau: 0, churnRate: 0 };
-    let learning = { graduationRate: 0, lapseRate: 0 };
-    let quizPerformance = {
+    const retention = { dauMau: 0, churnRate: 0 };
+    const learning = { graduationRate: 0, lapseRate: 0 };
+    const quizPerformance = {
       accuracyByState: [] as Array<{ state: string; total: number; correct: number; accuracy: number }>,
       avgResponseTimeMs: 0,
     };
-    let featureAdoption = {
+    const featureAdoption = {
       languageDistribution: [] as Array<{ language: string; count: number }>,
     };
-    let growthFunnel = {
+    const growthFunnel = {
       signupToFirstCard: 0,
       firstCardToFirstQuiz: 0,
       day7Retention: 0,
