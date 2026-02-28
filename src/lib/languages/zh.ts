@@ -79,4 +79,6 @@ export const chineseConfig: LanguageConfig = {
     default: "zh-Hans",
   },
   wordSegmentation: "llm-breakdown",
+  exampleWord: "學習",
+  exampleMeaning: "to study / to learn",
 };

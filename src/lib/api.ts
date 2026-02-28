@@ -298,4 +298,29 @@ export function createPortal(): Promise<{ portalUrl: string }> {
   });
 }
 
+// ---------------------------------------------------------------------------
+// User settings
+// ---------------------------------------------------------------------------
+
+export interface LanguageDisplay {
+  name: string;
+  isPhonetic: boolean;
+  exampleWord: string;
+  exampleMeaning: string;
+  readingSystemName: string | null;
+  readingPlaceholder: string | null;
+  readingInstructions: string | null;
+}
+
+export interface UserLanguageSettings {
+  targetLanguage: string;
+  languageVariant: string | null;
+  language: LanguageDisplay;
+}
+
+/** GET /api/user/settings — Get user language settings */
+export async function getUserLanguageSettings(): Promise<UserLanguageSettings> {
+  return fetchJson<UserLanguageSettings>("/api/user/settings");
+}
+
 export { ApiError };

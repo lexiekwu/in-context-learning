@@ -198,8 +198,15 @@ export async function POST(req: NextRequest) {
     // Use reading field if provided, fall back to pinyin for backward compat
     const effectiveReading = reading ?? pinyin ?? "";
 
-    // Check for duplicate
-    const language = parsed.data.language ?? "zh";
+    // Determine language: use provided language, or fall back to user's target language
+    let language = parsed.data.language;
+    if (!language) {
+      const user = await db.user.findUnique({
+        where: { id: userId },
+        select: { targetLanguage: true },
+      });
+      language = user?.targetLanguage ?? "zh";
+    }
     const existing = await db.flashcard.findUnique({
       where: { userId_word_language: { userId, word, language } },
     });

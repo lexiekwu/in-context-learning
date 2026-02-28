@@ -44,3 +44,6 @@ next-env.d.ts
 /src/generated/prisma
 .playwright-cli/
 .claude/worktrees/
+CLAUDE.md
+e2e-auth.json
+docs/spec/pending_pm_requests.md

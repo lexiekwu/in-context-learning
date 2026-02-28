@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
-import { createFlashcard, aiCreateCard, ApiError } from "@/lib/api";
+import { createFlashcard, aiCreateCard, getUserLanguageSettings, ApiError } from "@/lib/api";
+import type { LanguageDisplay } from "@/lib/api";
 import type { FlashcardResponse } from "@/types";
 
 interface CreateCardDialogProps {
@@ -23,6 +24,13 @@ export default function CreateCardDialog({
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [langDisplay, setLangDisplay] = useState<LanguageDisplay | null>(null);
+
+  useEffect(() => {
+    getUserLanguageSettings().then((s) => setLangDisplay(s.language)).catch(() => {});
+  }, []);
+
+  const isPhonetic = langDisplay?.isPhonetic ?? false;
 
   function resetForm() {
     setWord("");
@@ -39,8 +47,8 @@ export default function CreateCardDialog({
   }
 
   async function handleCreate() {
-    if (!word.trim() || !pinyin.trim() || !meaning.trim()) {
-      setError("All fields are required.");
+    if (!word.trim() || (!isPhonetic && !pinyin.trim()) || !meaning.trim()) {
+      setError("All required fields must be filled.");
       return;
     }
     setLoading(true);
@@ -48,7 +56,7 @@ export default function CreateCardDialog({
     try {
       const result = await createFlashcard({
         word: word.trim(),
-        pinyin: pinyin.trim(),
+        pinyin: isPhonetic ? undefined : pinyin.trim(),
         englishMeaning: meaning.trim(),
       });
       onCreated(result.flashcard);
@@ -143,31 +151,33 @@ export default function CreateCardDialog({
                   type="text"
                   value={word}
                   onChange={(e) => setWord(e.target.value)}
-                  placeholder="e.g. 學習"
+                  placeholder={`e.g. ${langDisplay?.exampleWord ?? "word"}`}
                   className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
                 <AiFillButton
                   onClick={() => handleAiFill(word)}
                   disabled={!word.trim() || aiLoading}
                   loading={aiLoading}
-                  title="AI-fill pinyin and meaning from this word"
+                  title={`AI-fill ${isPhonetic ? "meaning" : (langDisplay?.readingSystemName?.toLowerCase() ?? "reading") + " and meaning"} from this word`}
                 />
               </div>
             </div>
 
-            {/* Pinyin */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                Pinyin <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={pinyin}
-                onChange={(e) => setPinyin(e.target.value)}
-                placeholder="e.g. xue2xi2"
-                className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
+            {/* Pinyin / Reading (hidden for phonetic languages) */}
+            {!isPhonetic && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  {langDisplay?.readingSystemName ?? "Reading"} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={pinyin}
+                  onChange={(e) => setPinyin(e.target.value)}
+                  placeholder={langDisplay?.readingPlaceholder ?? "e.g. reading"}
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+            )}
 
             {/* English Meaning */}
             <div>
@@ -179,14 +189,14 @@ export default function CreateCardDialog({
                   type="text"
                   value={meaning}
                   onChange={(e) => setMeaning(e.target.value)}
-                  placeholder="e.g. to study / to learn"
+                  placeholder={`e.g. ${langDisplay?.exampleMeaning ?? "meaning"}`}
                   className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
                 <AiFillButton
                   onClick={() => handleAiFill(meaning)}
                   disabled={!meaning.trim() || aiLoading}
                   loading={aiLoading}
-                  title="AI-fill word and pinyin from this English meaning"
+                  title={`AI-fill word${isPhonetic ? "" : " and " + (langDisplay?.readingSystemName?.toLowerCase() ?? "reading")} from this English meaning`}
                 />
               </div>
             </div>

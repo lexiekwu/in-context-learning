@@ -61,13 +61,20 @@ export async function GET(request: NextRequest) {
     const { sessionId, excludeCardId } = parsed.data;
     const extraExcludeIds = excludeCardId ? [excludeCardId] : [];
 
+    // Get user's active language for filtering cards
+    const userRecord = await db.user.findUnique({
+      where: { id: userId },
+      select: { targetLanguage: true, languageVariant: true },
+    });
+    const activeLang = userRecord?.targetLanguage ?? "zh";
+
     // Verify session belongs to user + get next card in parallel
     const [studySession, cardResult] = await Promise.all([
       db.studySession.findUnique({
         where: { id: sessionId },
         select: { userId: true },
       }),
-      getNextDueCard(userId, sessionId, extraExcludeIds),
+      getNextDueCard(userId, sessionId, extraExcludeIds, activeLang),
     ]);
 
     if (!studySession || studySession.userId !== userId) {
@@ -112,13 +119,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (!sentence) {
-      // Get language settings and generate sentence
-      const user = await db.user.findUniqueOrThrow({
-        where: { id: userId },
-        select: { targetLanguage: true, languageVariant: true },
-      });
-      const langCode = user.targetLanguage ?? "zh";
-      const characterSet = getCharacterSet(langCode, user.languageVariant) ?? "traditional";
+      // Get language settings for sentence generation
+      const langCode = activeLang;
+      const characterSet = getCharacterSet(langCode, userRecord?.languageVariant) ?? "traditional";
 
       // Dev fallback for missing API key
       const poeKey = process.env.POE_API_KEY;

@@ -13,4 +13,6 @@ export const spanishConfig: LanguageConfig = {
   nativeName: "Español",
   isPhonetic: true,
   wordSegmentation: "whitespace",
+  exampleWord: "hola",
+  exampleMeaning: "hello",
 };

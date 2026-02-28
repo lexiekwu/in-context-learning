@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuizStateMachine } from "@/hooks/useQuizStateMachine";
 import { useSwipeGesture } from "@/hooks/useSwipeGesture";
 import { QuizCard } from "@/components/quiz/QuizCard";
@@ -16,7 +16,15 @@ import type { WordBreakdownEntry } from "@/types";
 import type { DailyStats } from "@/hooks/useQuizStateMachine";
 
 export default function QuizPage() {
-  const quiz = useQuizStateMachine();
+  const [langSettings, setLangSettings] = useState<api.UserLanguageSettings | null>(null);
+
+  useEffect(() => {
+    api.getUserLanguageSettings().then(setLangSettings).catch(() => {});
+  }, []);
+
+  const isPhonetic = langSettings?.language.isPhonetic ?? false;
+
+  const quiz = useQuizStateMachine({ isPhonetic });
 
   const { state: quizState, advanceFromCorrect, advanceFromCardComplete } = quiz;
   const handleSwipeLeft = useCallback(() => {
@@ -49,7 +57,7 @@ export default function QuizPage() {
       <div className="flex flex-1 flex-col items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
           <h1 className="text-3xl font-bold text-zinc-100">
-            Mandarin Quiz
+            {langSettings?.language.name ?? "Language"} Quiz
           </h1>
           <div className="mt-8 rounded-xl border border-red-800 bg-red-900/20 p-6">
             <p className="text-base text-red-200">
@@ -157,7 +165,7 @@ export default function QuizPage() {
       )}
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6">
-        {/* Chinese sentence display */}
+        {/* Sentence display */}
         <QuizCard
           sentence={card.sentence.sentence}
           wordBreakdown={card.sentence.wordBreakdown}
@@ -201,6 +209,9 @@ export default function QuizPage() {
               onSubmit={quiz.submitReading}
               isLoading={isVerifyingReading}
               disabled={isVerifyingReading}
+              readingSystemName={langSettings?.language.readingSystemName ?? undefined}
+              placeholder={langSettings?.language.readingPlaceholder ?? undefined}
+              instructions={langSettings?.language.readingInstructions ?? undefined}
             />
           )}
 
@@ -213,6 +224,7 @@ export default function QuizPage() {
               onContinue={quiz.advanceFromCorrect}
               onRetypeSuccess={quiz.retypeReading}
               readonly={!showReadingFeedback}
+              readingSystemName={langSettings?.language.readingSystemName ?? undefined}
             />
           )}
 

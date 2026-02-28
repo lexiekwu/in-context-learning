@@ -131,7 +131,7 @@ export async function PUT(
       data,
     });
 
-    return NextResponse.json({ card: toFlashcardResponse(updated) });
+    return NextResponse.json({ flashcard: toFlashcardResponse(updated) });
   } catch (err) {
     return errorResponse(err);
   }

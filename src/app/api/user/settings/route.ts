@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { z } from "zod";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getSupportedLanguageCodes } from "@/lib/languages";
+import { getLanguageConfig } from "@/lib/languages/index";
 
 const updateSettingsSchema = z.object({
   characterSet: z.enum(["TRADITIONAL", "SIMPLIFIED"]).optional(),
@@ -45,9 +46,35 @@ export async function GET() {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  // Include language display info for client-side UI
+  let langDisplay;
+  try {
+    const config = getLanguageConfig(user.targetLanguage);
+    langDisplay = {
+      name: config.name,
+      isPhonetic: config.isPhonetic,
+      exampleWord: config.exampleWord,
+      exampleMeaning: config.exampleMeaning,
+      readingSystemName: config.readingSystem?.name ?? null,
+      readingPlaceholder: config.readingSystem?.placeholder ?? null,
+      readingInstructions: config.readingSystem?.instructions ?? null,
+    };
+  } catch {
+    langDisplay = {
+      name: user.targetLanguage,
+      isPhonetic: false,
+      exampleWord: "",
+      exampleMeaning: "",
+      readingSystemName: null,
+      readingPlaceholder: null,
+      readingInstructions: null,
+    };
+  }
+
   return NextResponse.json({
     targetLanguage: user.targetLanguage,
     languageVariant: user.languageVariant,
+    language: langDisplay,
   });
 }
 

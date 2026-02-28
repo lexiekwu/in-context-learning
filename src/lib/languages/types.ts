@@ -63,4 +63,8 @@ export interface LanguageConfig {
    * - 'llm-breakdown': use LLM to break down (logographic languages)
    */
   wordSegmentation: "whitespace" | "llm-breakdown";
+  /** Example word for UI placeholders (e.g. "學習", "hola") */
+  exampleWord: string;
+  /** Example meaning for UI placeholders (e.g. "to study", "hello") */
+  exampleMeaning: string;
 }

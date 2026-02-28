@@ -52,4 +52,6 @@ export const japaneseConfig: LanguageConfig = {
     },
   },
   wordSegmentation: "llm-breakdown",
+  exampleWord: "勉強",
+  exampleMeaning: "to study",
 };
