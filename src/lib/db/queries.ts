@@ -41,43 +41,59 @@ export async function getNextDueCard(
   const now = new Date();
   const todayStart = startOfTodayUTC();
 
-  // Get cards already reviewed in this session (+ any extra exclusions)
-  const reviewedIds = await getSessionCardIds(sessionId);
+  // Get session cards and today's new card count in parallel
+  const [reviewedIds, newCardsStudiedToday] = await Promise.all([
+    getSessionCardIds(sessionId),
+    countNewCardsReviewedToday(userId),
+  ]);
   const sessionCardIds = extraExcludeIds.length > 0
     ? [...new Set([...reviewedIds, ...extraExcludeIds])]
     : reviewedIds;
 
-  // Get today's stats for limit checks
-  const todayStats = await getTodayReviewStats(userId);
   const newCardLimit = 20;
   const newCardsRemaining = Math.max(
     0,
-    newCardLimit - todayStats.newCardsStudied
+    newCardLimit - newCardsStudiedToday
   );
 
   // Language filter — only quiz cards in the user's active language
   const langFilter = language ? { language } : {};
 
-  // Priority 1: Learning/Relearning cards that are due
-  const learningCards = await db.flashcard.findMany({
-    where: {
-      userId,
-      ...langFilter,
-      due: { lte: now },
-      state: { in: ["LEARNING", "RELEARNING"] },
-      id: { notIn: sessionCardIds },
-    },
-    orderBy: { due: "asc" },
-  });
+  // Fetch priority 1 (learning) and priority 2 (review) candidates in parallel
+  // Use take: 1 since we only need the top card from each category
+  const [learningCard, reviewCard, reviewsSinceLastNew] = await Promise.all([
+    db.flashcard.findFirst({
+      where: {
+        userId,
+        ...langFilter,
+        due: { lte: now },
+        state: { in: ["LEARNING", "RELEARNING"] },
+        id: { notIn: sessionCardIds },
+      },
+      orderBy: { due: "asc" },
+    }),
+    db.flashcard.findFirst({
+      where: {
+        userId,
+        ...langFilter,
+        due: { lte: now },
+        state: "REVIEW",
+        id: { notIn: sessionCardIds },
+      },
+      orderBy: { due: "asc" },
+    }),
+    countReviewsSinceLastNew(userId, todayStart),
+  ]);
 
-  if (learningCards.length > 0) {
+  // Priority 1: Learning/Relearning cards that are due
+  if (learningCard) {
     const remaining = await countRemainingCards(
       userId,
       sessionCardIds,
       newCardsRemaining
     );
     return {
-      card: learningCards[0],
+      card: learningCard,
       cardsRemaining: remaining,
       newCardsRemaining,
       nextDueAt: null,
@@ -86,29 +102,11 @@ export async function getNextDueCard(
 
   // Priority 2 (with interleaving): Check if we should show a new card
   // Interleave 1 new card after every 5 review cards
-  const reviewsSinceLastNew = await countReviewsSinceLastNew(
-    userId,
-    todayStart
-  );
-
-  // Get overdue review cards
-  const reviewCards = await db.flashcard.findMany({
-    where: {
-      userId,
-      ...langFilter,
-      due: { lte: now },
-      state: "REVIEW",
-      id: { notIn: sessionCardIds },
-    },
-    orderBy: { due: "asc" }, // Most overdue first
-  });
-
-  // Check interleaving: insert 1 new card after every 5 reviews
   if (
     reviewsSinceLastNew >= 5 &&
     newCardsRemaining > 0
   ) {
-    const newCards = await db.flashcard.findMany({
+    const newCard = await db.flashcard.findFirst({
       where: {
         userId,
         ...langFilter,
@@ -116,17 +114,16 @@ export async function getNextDueCard(
         id: { notIn: sessionCardIds },
       },
       orderBy: { createdAt: "asc" },
-      take: 1,
     });
 
-    if (newCards.length > 0) {
+    if (newCard) {
       const remaining = await countRemainingCards(
         userId,
         sessionCardIds,
         newCardsRemaining
       );
       return {
-        card: newCards[0],
+        card: newCard,
         cardsRemaining: remaining,
         newCardsRemaining,
         nextDueAt: null,
@@ -135,14 +132,14 @@ export async function getNextDueCard(
   }
 
   // Priority 2 continued: Overdue review cards
-  if (reviewCards.length > 0) {
+  if (reviewCard) {
     const remaining = await countRemainingCards(
       userId,
       sessionCardIds,
       newCardsRemaining
     );
     return {
-      card: reviewCards[0],
+      card: reviewCard,
       cardsRemaining: remaining,
       newCardsRemaining,
       nextDueAt: null,
@@ -151,7 +148,7 @@ export async function getNextDueCard(
 
   // Priority 3: New cards (if under daily limit)
   if (newCardsRemaining > 0) {
-    const newCards = await db.flashcard.findMany({
+    const newCard = await db.flashcard.findFirst({
       where: {
         userId,
         ...langFilter,
@@ -159,17 +156,16 @@ export async function getNextDueCard(
         id: { notIn: sessionCardIds },
       },
       orderBy: { createdAt: "asc" },
-      take: 1,
     });
 
-    if (newCards.length > 0) {
+    if (newCard) {
       const remaining = await countRemainingCards(
         userId,
         sessionCardIds,
         newCardsRemaining
       );
       return {
-        card: newCards[0],
+        card: newCard,
         cardsRemaining: remaining,
         newCardsRemaining,
         nextDueAt: null,
@@ -210,28 +206,20 @@ export interface TodayReviewStats {
 
 /**
  * Aggregate today's review data from ReviewLog records.
+ * Uses count queries instead of fetching all records.
  */
 export async function getTodayReviewStats(
   userId: string
 ): Promise<TodayReviewStats> {
   const todayStart = startOfTodayUTC();
+  const baseWhere = { userId, reviewedAt: { gte: todayStart } };
 
-  const reviews = await db.reviewLog.findMany({
-    where: {
-      userId,
-      reviewedAt: { gte: todayStart },
-    },
-    select: {
-      overallRating: true,
-      priorState: true,
-    },
-  });
+  const [reviewedToday, correctToday, newCardsStudied] = await Promise.all([
+    db.reviewLog.count({ where: baseWhere }),
+    db.reviewLog.count({ where: { ...baseWhere, overallRating: "GOOD" } }),
+    db.reviewLog.count({ where: { ...baseWhere, priorState: "NEW" } }),
+  ]);
 
-  const reviewedToday = reviews.length;
-  const correctToday = reviews.filter((r) => r.overallRating === "GOOD").length;
-  const newCardsStudied = reviews.filter(
-    (r) => r.priorState === "NEW"
-  ).length;
   const accuracy = reviewedToday > 0 ? correctToday / reviewedToday : 0;
 
   return { reviewedToday, correctToday, newCardsStudied, accuracy };
@@ -378,27 +366,40 @@ export async function countDueCards(userId: string): Promise<number> {
 /**
  * Count reviews since the last new card was studied today.
  * Used for the 1:5 interleaving ratio.
+ * Optimized: find the most recent NEW review, then count reviews after it.
  */
 async function countReviewsSinceLastNew(
   userId: string,
   todayStart: Date
 ): Promise<number> {
-  const todaysReviews = await db.reviewLog.findMany({
+  // Find the most recent NEW card review today
+  const lastNewReview = await db.reviewLog.findFirst({
     where: {
       userId,
       reviewedAt: { gte: todayStart },
+      priorState: "NEW",
     },
     orderBy: { reviewedAt: "desc" },
-    select: { priorState: true },
+    select: { reviewedAt: true },
   });
 
-  // Count reviews from the most recent backwards until we hit a NEW card review
-  let count = 0;
-  for (const review of todaysReviews) {
-    if (review.priorState === "NEW") break;
-    count++;
+  if (!lastNewReview) {
+    // No new cards studied today — count all reviews today
+    return db.reviewLog.count({
+      where: {
+        userId,
+        reviewedAt: { gte: todayStart },
+      },
+    });
   }
-  return count;
+
+  // Count reviews after the last new card review
+  return db.reviewLog.count({
+    where: {
+      userId,
+      reviewedAt: { gt: lastNewReview.reviewedAt },
+    },
+  });
 }
 
 /**

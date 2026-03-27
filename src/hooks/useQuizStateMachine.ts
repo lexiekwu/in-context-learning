@@ -185,17 +185,16 @@ export function useQuizStateMachine(
         const sid = sessionRes.value.sessionId;
         setSessionId(sid);
 
-        // Load first card
-        const nextCard = await api.getNextCard(sid);
-        if (!nextCard.flashcard) {
+        // Load first card + sentence in a single request
+        const firstCard = await api.getNextCardWithSentence(sid);
+        if (!firstCard.flashcard || !firstCard.sentence) {
           setState("SESSION_SUMMARY");
           return;
         }
 
-        const sentenceRes = await api.generateSentence(nextCard.flashcard.id);
         setCard({
-          flashcard: nextCard.flashcard,
-          sentence: sentenceRes,
+          flashcard: firstCard.flashcard,
+          sentence: firstCard.sentence,
           translationResult: null,
           readingResult: null,
           userTranslation: "",
@@ -208,7 +207,7 @@ export function useQuizStateMachine(
 
         // Prefetch card 2
         prefetchRef.current = {
-          promise: prefetchNextCard(sid, nextCard.flashcard.id),
+          promise: prefetchNextCard(sid, firstCard.flashcard.id),
           sessionId: sid,
         };
       } catch (err) {

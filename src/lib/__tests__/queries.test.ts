@@ -13,6 +13,7 @@ vi.mock("@/lib/db", () => ({
     },
     reviewLog: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       count: vi.fn(),
       aggregate: vi.fn(),
     },
@@ -41,6 +42,7 @@ const mockDb = db as unknown as {
   };
   reviewLog: {
     findMany: ReturnType<typeof vi.fn>;
+    findFirst: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
     aggregate: ReturnType<typeof vi.fn>;
   };
@@ -224,12 +226,11 @@ describe("computeStreak", () => {
 
 describe("getTodayReviewStats", () => {
   it("returns correct aggregated stats", async () => {
-    mockDb.reviewLog.findMany.mockResolvedValue([
-      { overallRating: "GOOD", priorState: "NEW" },
-      { overallRating: "GOOD", priorState: "REVIEW" },
-      { overallRating: "AGAIN", priorState: "REVIEW" },
-      { overallRating: "GOOD", priorState: "NEW" },
-    ]);
+    // Now uses parallel count queries: total, correct (GOOD), new (priorState NEW)
+    mockDb.reviewLog.count
+      .mockResolvedValueOnce(4)  // reviewedToday
+      .mockResolvedValueOnce(3)  // correctToday
+      .mockResolvedValueOnce(2); // newCardsStudied
 
     const result = await getTodayReviewStats("user-1");
 
@@ -240,7 +241,10 @@ describe("getTodayReviewStats", () => {
   });
 
   it("returns zeros when no reviews today", async () => {
-    mockDb.reviewLog.findMany.mockResolvedValue([]);
+    mockDb.reviewLog.count
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
 
     const result = await getTodayReviewStats("user-1");
 
@@ -251,11 +255,14 @@ describe("getTodayReviewStats", () => {
   });
 
   it("filters by today's date", async () => {
-    mockDb.reviewLog.findMany.mockResolvedValue([]);
+    mockDb.reviewLog.count
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
 
     await getTodayReviewStats("user-1");
 
-    const callArgs = mockDb.reviewLog.findMany.mock.calls[0][0];
+    const callArgs = mockDb.reviewLog.count.mock.calls[0][0];
     expect(callArgs.where.userId).toBe("user-1");
     const gteDate = callArgs.where.reviewedAt.gte as Date;
     expect(gteDate.getUTCHours()).toBe(0);
@@ -300,8 +307,10 @@ describe("getNextDueCard", () => {
   beforeEach(() => {
     // Default: no session cards reviewed
     mockDb.reviewLog.findMany.mockResolvedValue([]);
-    // Default: no new cards reviewed today
+    // Default: no new cards reviewed today (countNewCardsReviewedToday)
     mockDb.reviewLog.count.mockResolvedValue(0);
+    // Default: no last NEW review found (countReviewsSinceLastNew)
+    mockDb.reviewLog.findFirst.mockResolvedValue(null);
   });
 
   it("returns learning card first (priority 1)", async () => {
@@ -310,14 +319,19 @@ describe("getNextDueCard", () => {
       state: "LEARNING",
       due: pastDue,
     };
-    // getTodayReviewStats (called internally)
-    mockDb.reviewLog.findMany
-      .mockResolvedValueOnce([]) // getSessionCardIds
-      .mockResolvedValueOnce([]) // getTodayReviewStats
-      .mockResolvedValueOnce([]); // countReviewsSinceLastNew (not reached)
 
-    // Learning cards query
-    mockDb.flashcard.findMany.mockResolvedValueOnce([learningCard]);
+    // getSessionCardIds
+    mockDb.reviewLog.findMany.mockResolvedValueOnce([]);
+    // countNewCardsReviewedToday
+    mockDb.reviewLog.count.mockResolvedValueOnce(0);
+
+    // Parallel queries: learningCard, reviewCard, reviewsSinceLastNew
+    mockDb.flashcard.findFirst
+      .mockResolvedValueOnce(learningCard)  // learning card
+      .mockResolvedValueOnce(null);         // review card
+    mockDb.reviewLog.findFirst.mockResolvedValueOnce(null); // no last NEW review
+    mockDb.reviewLog.count.mockResolvedValueOnce(0); // reviews since last new
+
     // countRemainingCards queries
     mockDb.flashcard.count
       .mockResolvedValueOnce(5) // due count
@@ -330,18 +344,21 @@ describe("getNextDueCard", () => {
   });
 
   it("returns null when no cards available", async () => {
-    mockDb.reviewLog.findMany
-      .mockResolvedValueOnce([]) // getSessionCardIds
-      .mockResolvedValueOnce([]) // getTodayReviewStats
-      .mockResolvedValueOnce([]); // countReviewsSinceLastNew
+    // getSessionCardIds
+    mockDb.reviewLog.findMany.mockResolvedValueOnce([]);
+    // countNewCardsReviewedToday
+    mockDb.reviewLog.count.mockResolvedValueOnce(0);
 
-    // No learning, review, or new cards
-    mockDb.flashcard.findMany
-      .mockResolvedValueOnce([]) // learning cards
-      .mockResolvedValueOnce([]) // review cards
-      .mockResolvedValueOnce([]); // new cards (interleave)
+    // Parallel queries: no learning, no review card
+    mockDb.flashcard.findFirst
+      .mockResolvedValueOnce(null)  // learning card
+      .mockResolvedValueOnce(null)  // review card
+      .mockResolvedValueOnce(null)  // new card (priority 3)
+      .mockResolvedValueOnce(null); // nextDueCard fallback
 
-    mockDb.flashcard.findFirst.mockResolvedValue(null); // no next due
+    // countReviewsSinceLastNew: no last NEW review, then count all
+    mockDb.reviewLog.findFirst.mockResolvedValueOnce(null);
+    mockDb.reviewLog.count.mockResolvedValueOnce(0);
 
     const result = await getNextDueCard("user-1", "session-1");
 
@@ -350,24 +367,28 @@ describe("getNextDueCard", () => {
   });
 
   it("excludes extra IDs when provided", async () => {
-    // Override the default for getSessionCardIds
+    // getSessionCardIds
     mockDb.reviewLog.findMany.mockReset();
     mockDb.reviewLog.findMany
-      .mockResolvedValueOnce([{ flashcardId: "card-a" }]) // getSessionCardIds
-      .mockResolvedValueOnce([]) // getTodayReviewStats
-      .mockResolvedValueOnce([]); // countReviewsSinceLastNew
+      .mockResolvedValueOnce([{ flashcardId: "card-a" }]);
 
-    mockDb.flashcard.findMany
-      .mockResolvedValueOnce([]) // learning
-      .mockResolvedValueOnce([]) // review
-      .mockResolvedValueOnce([]); // new (interleave)
+    // countNewCardsReviewedToday
+    mockDb.reviewLog.count.mockResolvedValueOnce(0);
 
-    mockDb.flashcard.findFirst.mockResolvedValue(null);
+    // Parallel queries: no learning, no review
+    mockDb.flashcard.findFirst
+      .mockResolvedValueOnce(null)  // learning
+      .mockResolvedValueOnce(null)  // review
+      .mockResolvedValueOnce(null)  // new card (priority 3)
+      .mockResolvedValueOnce(null); // nextDueCard
+
+    mockDb.reviewLog.findFirst.mockResolvedValueOnce(null);
+    mockDb.reviewLog.count.mockResolvedValueOnce(0);
 
     await getNextDueCard("user-1", "session-1", ["card-b"]);
 
-    // The learning cards query should exclude both card-a and card-b
-    const learningQuery = mockDb.flashcard.findMany.mock.calls[0][0];
+    // The learning card query (first findFirst call) should exclude both card-a and card-b
+    const learningQuery = mockDb.flashcard.findFirst.mock.calls[0][0];
     expect(learningQuery.where.id.notIn).toContain("card-a");
     expect(learningQuery.where.id.notIn).toContain("card-b");
   });
