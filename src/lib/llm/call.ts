@@ -101,21 +101,24 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
     systemMessage,
     userMessage,
     schema,
-    maxRetries = 2,
+    maxRetries = 1,
     model = DEFAULT_MODEL,
     temperature = 0.7,
     maxTokens = 1000,
     purpose = "unknown",
   } = options;
 
+  const overallStart = Date.now();
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    let callStart = Date.now();
     try {
       // Create an AbortController for the 10s timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30_000);
+      const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
       let response;
-      const callStart = Date.now();
+      callStart = Date.now();
       try {
         response = await poe.chat.completions.create(
           {
@@ -135,6 +138,10 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
       }
 
       const durationMs = Date.now() - callStart;
+
+      if (durationMs > 3000) {
+        logger.warn({ purpose, attempt, durationMs, model }, "Slow LLM response");
+      }
 
       // Log LLM call for usage tracking (fire-and-forget)
       logLlmCall({
@@ -206,10 +213,16 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
         );
       }
 
+      const attemptDurationMs = Date.now() - callStart;
+      const errorName = error instanceof Error ? error.name : String(error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
       // Rate limit — back off then retry
       if (isRateLimitError(error)) {
+        const backoffMs = Math.pow(2, attempt) * 1000;
+        logger.warn({ purpose, attempt, attemptDurationMs, backoffMs }, "LLM rate limited");
         if (attempt < maxRetries) {
-          await sleep(Math.pow(2, attempt) * 1000);
+          await sleep(backoffMs);
           continue;
         }
         throw new AppError(
@@ -218,11 +231,15 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
         );
       }
 
-      // Timeout (AbortError)
-      if (
-        error instanceof DOMException &&
-        error.name === "AbortError"
-      ) {
+      // Timeout (AbortError) — check both native DOMException and OpenAI SDK's wrapped error
+      const isAbort =
+        (error instanceof DOMException && error.name === "AbortError") ||
+        (error instanceof Error && error.name === "AbortError") ||
+        (error instanceof Error && "code" in error && (error as { code: string }).code === "ECONNABORTED") ||
+        (error instanceof Error && error.message?.includes("abort"));
+
+      if (isAbort) {
+        logger.error({ purpose, attempt, attemptDurationMs, totalElapsedMs: Date.now() - overallStart }, "LLM request timed out");
         if (attempt < maxRetries) continue;
         throw new AppError(
           ErrorCode.LLM_TIMEOUT,
@@ -232,6 +249,7 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
 
       // On last attempt, rethrow as-is (if already AppError) or wrap
       if (attempt === maxRetries) {
+        logger.error({ purpose, attempt, attemptDurationMs, totalElapsedMs: Date.now() - overallStart, errorName, errorMsg }, "LLM call failed after all retries");
         if (error instanceof AppError) throw error;
         throw new AppError(
           ErrorCode.LLM_ERROR,
@@ -242,6 +260,7 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
       }
 
       // Otherwise, retry
+      logger.warn({ purpose, attempt, attemptDurationMs, errorName, errorMsg }, "LLM call failed, retrying");
     }
   }
 

@@ -12,6 +12,7 @@ import {
 import { getLanguageConfig } from "@/lib/languages";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sanitizeForPrompt } from "@/lib/llm/sanitize";
+import { requestLogger } from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
 // LLM prompt — focused narrowly on target word understanding
@@ -74,6 +75,9 @@ const RequestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const routeStart = Date.now();
+    const log = requestLogger("check-translation");
+
     // Auth
     const session = await auth();
     if (!session?.user?.id) {
@@ -92,23 +96,25 @@ export async function POST(request: NextRequest) {
     }
     const { flashcardId, generatedSentence, generatedTranslation, userTranslation } = parsed.data;
 
-    // Fetch the flashcard to get target word and meaning
-    const flashcard = await db.flashcard.findFirst({
-      where: { id: flashcardId, userId },
-    });
+    // Fetch the flashcard and user language in parallel
+    const [flashcard, user] = await Promise.all([
+      db.flashcard.findFirst({
+        where: { id: flashcardId, userId },
+      }),
+      db.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { targetLanguage: true },
+      }),
+    ]);
     if (!flashcard) {
       throw notFoundError("Flashcard", flashcardId);
     }
 
-    // Get user's target language for prompt context
-    const user = await db.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { targetLanguage: true },
-    });
     const langConfig = getLanguageConfig(user.targetLanguage);
     const languageName = langConfig.name;
 
     // Ask LLM to judge whether the target word's meaning is reflected
+    const llmStart = Date.now();
     const result = await callLLM({
       systemMessage: buildSystemMessage(languageName),
       userMessage: buildUserMessage({
@@ -125,6 +131,13 @@ export async function POST(request: NextRequest) {
       temperature: 0.1,
       maxTokens: 1000,
     });
+
+    const llmMs = Date.now() - llmStart;
+    const totalMs = Date.now() - routeStart;
+    log.info({ llmMs, totalMs, flashcardId }, "check-translation complete");
+    if (totalMs > 3000) {
+      log.warn({ llmMs, totalMs, flashcardId }, "Slow check-translation response");
+    }
 
     return NextResponse.json({ correct: result.correct });
   } catch (error) {

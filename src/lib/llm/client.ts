@@ -11,6 +11,8 @@ import { env } from "@/lib/env";
 export const poe = new OpenAI({
   apiKey: env.POE_API_KEY,
   baseURL: "https://api.poe.com/v1",
+  maxRetries: 0, // We handle retries in callLLM — disable SDK retries to avoid nested retry loops
+  timeout: 10_000, // 10s timeout at SDK level as a safety net
 });
 
 /** Default model for all LLM calls (Poe bot name). */

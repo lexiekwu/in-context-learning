@@ -85,28 +85,22 @@ export async function getNextDueCard(
     countReviewsSinceLastNew(userId, todayStart),
   ]);
 
+  // Select the card based on priority, then compute remaining count once at the end
+  let selectedCard: Flashcard | null = null;
+
   // Priority 1: Learning/Relearning cards that are due
   if (learningCard) {
-    const remaining = await countRemainingCards(
-      userId,
-      sessionCardIds,
-      newCardsRemaining
-    );
-    return {
-      card: learningCard,
-      cardsRemaining: remaining,
-      newCardsRemaining,
-      nextDueAt: null,
-    };
+    selectedCard = learningCard;
   }
 
   // Priority 2 (with interleaving): Check if we should show a new card
   // Interleave 1 new card after every 5 review cards
   if (
+    !selectedCard &&
     reviewsSinceLastNew >= 5 &&
     newCardsRemaining > 0
   ) {
-    const newCard = await db.flashcard.findFirst({
+    selectedCard = await db.flashcard.findFirst({
       where: {
         userId,
         ...langFilter,
@@ -115,62 +109,39 @@ export async function getNextDueCard(
       },
       orderBy: { createdAt: "asc" },
     });
-
-    if (newCard) {
-      const remaining = await countRemainingCards(
-        userId,
-        sessionCardIds,
-        newCardsRemaining
-      );
-      return {
-        card: newCard,
-        cardsRemaining: remaining,
-        newCardsRemaining,
-        nextDueAt: null,
-      };
-    }
   }
 
   // Priority 2 continued: Overdue review cards
-  if (reviewCard) {
+  if (!selectedCard && reviewCard) {
+    selectedCard = reviewCard;
+  }
+
+  // Priority 3: New cards (if under daily limit)
+  if (!selectedCard && newCardsRemaining > 0) {
+    selectedCard = await db.flashcard.findFirst({
+      where: {
+        userId,
+        ...langFilter,
+        state: "NEW",
+        id: { notIn: sessionCardIds },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  // Compute remaining count once for the selected card
+  if (selectedCard) {
     const remaining = await countRemainingCards(
       userId,
       sessionCardIds,
       newCardsRemaining
     );
     return {
-      card: reviewCard,
+      card: selectedCard,
       cardsRemaining: remaining,
       newCardsRemaining,
       nextDueAt: null,
     };
-  }
-
-  // Priority 3: New cards (if under daily limit)
-  if (newCardsRemaining > 0) {
-    const newCard = await db.flashcard.findFirst({
-      where: {
-        userId,
-        ...langFilter,
-        state: "NEW",
-        id: { notIn: sessionCardIds },
-      },
-      orderBy: { createdAt: "asc" },
-    });
-
-    if (newCard) {
-      const remaining = await countRemainingCards(
-        userId,
-        sessionCardIds,
-        newCardsRemaining
-      );
-      return {
-        card: newCard,
-        cardsRemaining: remaining,
-        newCardsRemaining,
-        nextDueAt: null,
-      };
-    }
   }
 
   // No cards available — find the next due date
@@ -412,22 +383,23 @@ async function countRemainingCards(
 ): Promise<number> {
   const now = new Date();
 
-  const dueCount = await db.flashcard.count({
-    where: {
-      userId,
-      due: { lte: now },
-      state: { not: "NEW" },
-      id: { notIn: excludeIds },
-    },
-  });
-
-  const newAvailable = await db.flashcard.count({
-    where: {
-      userId,
-      state: "NEW",
-      id: { notIn: excludeIds },
-    },
-  });
+  const [dueCount, newAvailable] = await Promise.all([
+    db.flashcard.count({
+      where: {
+        userId,
+        due: { lte: now },
+        state: { not: "NEW" },
+        id: { notIn: excludeIds },
+      },
+    }),
+    db.flashcard.count({
+      where: {
+        userId,
+        state: "NEW",
+        id: { notIn: excludeIds },
+      },
+    }),
+  ]);
 
   return dueCount + Math.min(newAvailable, newCardsRemaining);
 }

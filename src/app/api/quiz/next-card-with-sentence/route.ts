@@ -19,6 +19,7 @@ import {
 import { sanitizeForPrompt } from "@/lib/llm/sanitize";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getCharacterSet } from "@/lib/languages";
+import { requestLogger } from "@/lib/logger";
 
 const querySchema = z.object({
   sessionId: z.string().uuid("sessionId must be a valid UUID"),
@@ -39,12 +40,16 @@ function startOfToday(): Date {
  */
 export async function GET(request: NextRequest) {
   try {
+    const routeStart = Date.now();
+    const log = requestLogger("next-card-with-sentence");
+
     const session = await auth();
     if (!session?.user?.id) {
       throw unauthorizedError();
     }
 
     const userId = session.user.id;
+    const authMs = Date.now() - routeStart;
 
     const limited = await checkRateLimit("quiz", userId);
     if (limited) return limited;
@@ -61,25 +66,26 @@ export async function GET(request: NextRequest) {
     const { sessionId, excludeCardId } = parsed.data;
     const extraExcludeIds = excludeCardId ? [excludeCardId] : [];
 
-    // Get user's active language for filtering cards
-    const userRecord = await db.user.findUnique({
-      where: { id: userId },
-      select: { targetLanguage: true, languageVariant: true },
-    });
-    const activeLang = userRecord?.targetLanguage ?? "zh";
-
-    // Verify session belongs to user + get next card in parallel
-    const [studySession, cardResult] = await Promise.all([
+    // Fetch user language, verify session, and get next card in parallel
+    const [userRecord, studySession] = await Promise.all([
+      db.user.findUnique({
+        where: { id: userId },
+        select: { targetLanguage: true, languageVariant: true },
+      }),
       db.studySession.findUnique({
         where: { id: sessionId },
         select: { userId: true },
       }),
-      getNextDueCard(userId, sessionId, extraExcludeIds, activeLang),
     ]);
+    const activeLang = userRecord?.targetLanguage ?? "zh";
 
     if (!studySession || studySession.userId !== userId) {
       throw notFoundError("StudySession", sessionId);
     }
+
+    const cardQueryStart = Date.now();
+    const cardResult = await getNextDueCard(userId, sessionId, extraExcludeIds, activeLang);
+    const cardQueryMs = Date.now() - cardQueryStart;
 
     if (!cardResult.card) {
       return NextResponse.json({
@@ -173,6 +179,14 @@ export async function GET(request: NextRequest) {
           purpose: "generate-sentence",
         });
       }
+    }
+
+    const totalMs = Date.now() - routeStart;
+    const sentenceSource = cachedLog?.sentenceResponseJson ? "cache" : "llm";
+    const sentenceMs = totalMs - authMs - cardQueryMs;
+    log.info({ authMs, cardQueryMs, sentenceSource, sentenceMs, totalMs, flashcardId: flashcard.id }, "next-card-with-sentence complete");
+    if (totalMs > 3000) {
+      log.warn({ authMs, cardQueryMs, sentenceSource, sentenceMs, totalMs, flashcardId: flashcard.id }, "Slow next-card-with-sentence response");
     }
 
     return NextResponse.json({
