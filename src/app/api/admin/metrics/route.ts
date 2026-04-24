@@ -96,12 +96,16 @@ export async function GET() {
       `,
     ]);
 
-    // Approximate per-token pricing (USD per 1M tokens) for Gemini 2.5 Flash via Poe
+    // Approximate per-token pricing (USD per 1M tokens) for Gemini via Google AI Studio
+    // Prices reflect <=200K context tier for Gemini 2.5 Pro.
     const PRICING: Record<string, { input: number; output: number }> = {
-      "Gemini-2.5-Flash": { input: 0.15, output: 0.60 },
+      "gemini-2.5-flash": { input: 0.30, output: 2.50 },
+      "gemini-2.5-pro": { input: 1.25, output: 10.0 },
+      // Legacy Poe-era model strings — kept so historical LlmCall rows still cost out
+      "Gemini-2.5-Flash": { input: 0.30, output: 2.50 },
       "Gemini-2.5-Pro": { input: 1.25, output: 10.0 },
     };
-    const DEFAULT_PRICING = { input: 0.15, output: 0.60 };
+    const DEFAULT_PRICING = { input: 0.30, output: 2.50 };
 
     function estimateCost(promptTokens: number, completionTokens: number, model?: string) {
       const p = (model && PRICING[model]) || DEFAULT_PRICING;

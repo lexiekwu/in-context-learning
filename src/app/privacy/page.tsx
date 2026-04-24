@@ -58,7 +58,7 @@ export default function PrivacyPolicy() {
             <strong>Stripe:</strong> Payment processing
           </li>
           <li>
-            <strong>Google Gemini (via Poe):</strong> AI sentence generation and
+            <strong>Google Gemini:</strong> AI sentence generation and
             translation checking
           </li>
           <li>

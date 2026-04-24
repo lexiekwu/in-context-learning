@@ -1,4 +1,4 @@
-export { poe, DEFAULT_MODEL, FALLBACK_MODEL } from "./client";
+export { gemini, DEFAULT_MODEL, FALLBACK_MODEL } from "./client";
 export { callLLM } from "./call";
 export type { CallLLMOptions } from "./call";
 export { sanitizeForPrompt } from "./sanitize";

@@ -16,7 +16,7 @@ In Context Learning generates natural Chinese sentences around target vocabulary
 | Database | Supabase (PostgreSQL) | Managed Postgres with connection pooling via PgBouncer |
 | Auth | Auth.js v5 (NextAuth) | Google OAuth with JWT sessions |
 | SRS | ts-fsrs | FSRS-5 spaced repetition algorithm implementation |
-| AI | Poe API (Gemini 2.5 Flash) | Sentence generation, translation grading, card creation |
+| AI | Google Gemini API (2.5 Flash) | Sentence generation, translation grading, card creation |
 | Payments | Stripe | Checkout, webhooks, customer portal |
 | Styling | Tailwind CSS + shadcn/ui | Utility-first CSS with accessible component library |
 | Rate Limiting | Upstash Redis | Per-user rate limiting on API routes |
@@ -29,7 +29,7 @@ In Context Learning generates natural Chinese sentences around target vocabulary
 - npm
 - A Supabase project (for PostgreSQL)
 - Google OAuth credentials
-- Poe API key
+- Gemini API key (from https://aistudio.google.com/apikey)
 - Stripe account (for billing features)
 - Upstash Redis instance (for rate limiting)
 
@@ -119,7 +119,7 @@ in-context-learning/
 The core learning loop follows this flow:
 
 1. **Card Selection** -- The FSRS scheduler selects the next due card, prioritizing Learning/Relearning cards, then overdue Review cards, then New cards (interleaved 1 per 5 reviews).
-2. **Sentence Generation** -- The Poe API (Gemini 2.5 Flash) generates a natural Chinese sentence containing the target word, along with a word-by-word breakdown for hover tooltips.
+2. **Sentence Generation** -- The Google Gemini API (2.5 Flash) generates a natural Chinese sentence containing the target word, along with a word-by-word breakdown for hover tooltips.
 3. **Translation Check** -- The user types an English translation. The LLM evaluates semantic correctness, with particular emphasis on the target word's meaning.
 4. **Pinyin Check** -- The user types numbered-tone pinyin (e.g., `xue2xi2`) for the target word. Server-side string comparison verifies the answer.
 5. **FSRS Update** -- Based on the outcome (both correct = Good, either wrong = Again), the ts-fsrs library computes new scheduling parameters and the card's next review date is persisted.

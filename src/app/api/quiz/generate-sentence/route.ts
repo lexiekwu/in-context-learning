@@ -108,9 +108,9 @@ export async function POST(request: NextRequest) {
     // Pick the right response schema based on language type
     const responseSchema = createSentenceGenerationSchema(langCode);
 
-    // Dev fallback: if POE_API_KEY is not configured or is a placeholder, return mock data
-    const poeKey = process.env.POE_API_KEY;
-    if (!poeKey || poeKey.startsWith("your")) {
+    // Dev fallback: if GEMINI_API_KEY is not configured or is a placeholder, return mock data
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey || geminiKey.startsWith("your")) {
       const word = flashcard.word;
       const meaning = flashcard.englishMeaning;
       const pin = flashcard.reading ?? "";

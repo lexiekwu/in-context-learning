@@ -136,7 +136,7 @@ The recent security review addressed prompt injection sanitization, CSP headers,
 | `GOOGLE_CLIENT_ID` | Auth | Production OAuth credentials |
 | `GOOGLE_CLIENT_SECRET` | Auth | Production OAuth credentials |
 | `NEXTAUTH_URL` | Auth | Production URL (e.g., `https://yourdomain.com`) |
-| `POE_API_KEY` | LLM features | Required for quiz to function |
+| `GEMINI_API_KEY` | LLM features | Required for quiz to function |
 | `STRIPE_SECRET_KEY` | Billing | Production key (starts with `sk_live_`) |
 | `STRIPE_WEBHOOK_SECRET` | Billing | Production webhook signing secret |
 | `STRIPE_MONTHLY_PRICE_ID` | Billing | Price ID from production Stripe product |
@@ -297,7 +297,7 @@ The recent security review addressed prompt injection sanitization, CSP headers,
 **Why:** LLM calls are logged to the `LlmCall` table with token counts and duration (`src/lib/llm/call.ts` lines 256-279). The admin dashboard shows estimated costs. But there is no alerting if costs spike (e.g., a bug causes infinite LLM retries, or a user abuses the API).
 
 **Action:**
-1. Set up a Poe API spending alert/cap if available.
+1. Set up a Gemini API spending alert/cap if available.
 2. Add a daily cost check to the admin metrics that alerts (email or Slack) if the daily LLM spend exceeds a threshold.
 3. Consider a per-user daily LLM call limit (currently only rate-limited per minute).
 
@@ -431,7 +431,7 @@ These appear correct. Verify under real load with `EXPLAIN ANALYZE` on the most 
 |----------|------|--------|
 | **P0** | Code (verify) | Done but needs review |
 
-**Why:** A privacy policy exists at `/privacy` (`src/app/privacy/page.tsx`). It lists the correct third-party services (Google OAuth, Stripe, Poe/Gemini, Supabase, Upstash, Vercel) and describes data collection accurately. However, it needs review for:
+**Why:** A privacy policy exists at `/privacy` (`src/app/privacy/page.tsx`). It lists the correct third-party services (Google OAuth, Stripe, Gemini, Supabase, Upstash, Vercel) and describes data collection accurately. However, it needs review for:
 - Contact email is a personal Gmail address -- consider a business email.
 - No mention of cookies (Auth.js uses session cookies).
 - No mention of analytics (Vercel Analytics mentioned in tech spec but not in privacy policy).
@@ -513,11 +513,11 @@ This is solid for a pre-launch app. Gaps include:
 |----------|------|--------|
 | **P2** | External | Not started |
 
-**Why:** The LLM endpoints (`/api/quiz/generate-sentence`, `/api/quiz/check-translation`) are the slowest and most expensive paths. Under concurrent load, they may hit Poe API rate limits, Vercel function concurrency limits, or database connection exhaustion.
+**Why:** The LLM endpoints (`/api/quiz/generate-sentence`, `/api/quiz/check-translation`) are the slowest and most expensive paths. Under concurrent load, they may hit Gemini API rate limits, Vercel function concurrency limits, or database connection exhaustion.
 
 **Action:**
 1. Use a simple load testing tool (k6, Artillery) to simulate 10-20 concurrent quiz sessions.
-2. Monitor: function duration, Poe API error rates, DB connection count, rate limit hits.
+2. Monitor: function duration, Gemini API error rates, DB connection count, rate limit hits.
 
 ### 8.4 Stripe webhook integration test
 | Priority | Type | Status |

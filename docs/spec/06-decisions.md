@@ -112,17 +112,17 @@ Lexie answer: agree ✅
 
 ### T1: LLM provider?
 
-**Decided: Poe API (`https://api.poe.com/v1`) → Gemini 2.5 Flash (primary), Gemini 2.5 Pro (fallback for translation checking if quality issues arise).**
+**Decided: Google Gemini API (first-party, `@google/genai` SDK) → Gemini 2.5 Flash (primary), Gemini 2.5 Pro (fallback for translation checking if quality issues arise).**
 
-**Rationale:** Poe API provides an OpenAI-compatible gateway to multiple model providers via a single API key and points-based billing. Uses the standard `openai` npm package with a custom `baseURL`. Underlying model (Gemini 2.5 Flash) has strong multilingual/Chinese capabilities.
+**Rationale:** Direct first-party access to Gemini models. Native structured JSON output via `responseMimeType: "application/json"`, eliminating the need for prompt-based JSON coaxing and reducing malformed-output retries. Clean per-token pricing with no gateway markup. Gemini 2.5 Flash has strong multilingual/Chinese capabilities.
 
-**Key limitation:** Poe API does not support structured JSON output (`response_format` / `response_mime_type`). JSON is enforced via prompt instructions and validated with Zod schemas. A code-fence stripping step handles occasional markdown wrapping.
+**Previously:** Originally went through the Poe API (OpenAI-compatible gateway at `https://api.poe.com/v1`) using the `openai` npm package. Migrated off in April 2026 to remove the gateway layer, unlock native JSON mode, and simplify billing.
 
-**Cost:** Points-based pricing tied to Poe subscription plans. Per-token cost is roughly equivalent to direct provider pricing. At early scale (<500 users), a Pro plan ($49.99/mo) provides sufficient points.
+**Cost:** Gemini 2.5 Flash is $0.30 / 1M input tokens and $2.50 / 1M output tokens at the ≤200K context tier.
 
-**Alternatives:** Direct Gemini API (structured JSON support, context caching, batch API — better for scale), OpenAI API, Claude API.
+**Alternatives:** OpenAI API, Claude API, Vertex AI (same Gemini models, GCP-project-scoped billing).
 
-**If changed:** Update `04-llm-integration.md` SDK setup (change `baseURL`, model names), cost analysis, and error handling.
+**If changed:** Update `04-llm-integration.md` SDK setup, cost analysis, and error handling.
 
 Lexie answer: agree ✅
 ---

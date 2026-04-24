@@ -5,23 +5,21 @@ import { z } from "zod";
 // Mocks — must be declared before importing callLLM
 // ---------------------------------------------------------------------------
 
-const mockCreate = vi.fn();
+const mockGenerateContent = vi.fn();
 
 vi.mock("@/lib/llm/client", () => ({
-  poe: {
-    chat: {
-      completions: {
-        create: (...args: unknown[]) => mockCreate(...args),
-      },
+  gemini: {
+    models: {
+      generateContent: (...args: unknown[]) => mockGenerateContent(...args),
     },
   },
-  DEFAULT_MODEL: "Gemini-2.5-Flash",
+  DEFAULT_MODEL: "gemini-2.5-flash",
 }));
 
 // Mock env to avoid needing real env vars
 vi.mock("@/lib/env", () => ({
   env: {
-    POE_API_KEY: "test-api-key",
+    GEMINI_API_KEY: "test-api-key",
   },
 }));
 
@@ -48,14 +46,12 @@ type TestResponse = z.infer<typeof TestSchema>;
 // ---------------------------------------------------------------------------
 
 function mockSuccessResponse(content: string) {
-  mockCreate.mockResolvedValue({
-    choices: [
-      {
-        message: {
-          content,
-        },
-      },
-    ],
+  mockGenerateContent.mockResolvedValue({
+    text: content,
+    usageMetadata: {
+      promptTokenCount: 10,
+      candidatesTokenCount: 20,
+    },
   });
 }
 
@@ -92,7 +88,7 @@ describe("callLLM", () => {
       sentence: "你好世界",
       translation: "Hello world",
     });
-    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
   });
 
   it("strips code fences from LLM response before parsing", async () => {
@@ -109,19 +105,14 @@ describe("callLLM", () => {
 
   it("retries on failure up to maxRetries", async () => {
     // First call fails, second succeeds
-    mockCreate
+    mockGenerateContent
       .mockRejectedValueOnce(new Error("Network error"))
       .mockResolvedValueOnce({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                sentence: "retry success",
-                translation: "worked",
-              }),
-            },
-          },
-        ],
+        text: JSON.stringify({
+          sentence: "retry success",
+          translation: "worked",
+        }),
+        usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 10 },
       });
 
     const result = await callLLM<TestResponse>(
@@ -132,12 +123,12 @@ describe("callLLM", () => {
       sentence: "retry success",
       translation: "worked",
     });
-    expect(mockCreate).toHaveBeenCalledTimes(2);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
   });
 
   it("throws LLM_TIMEOUT on AbortError after all retries exhausted", async () => {
     const abortError = new DOMException("The operation was aborted", "AbortError");
-    mockCreate.mockRejectedValue(abortError);
+    mockGenerateContent.mockRejectedValue(abortError);
 
     await expect(
       callLLM<TestResponse>(defaultOptions({ maxRetries: 1 }))
@@ -169,7 +160,7 @@ describe("callLLM", () => {
 
   it("throws RATE_LIMITED on 429 error after all retries", async () => {
     const rateLimitError = { status: 429, message: "Too many requests" };
-    mockCreate.mockRejectedValue(rateLimitError);
+    mockGenerateContent.mockRejectedValue(rateLimitError);
 
     await expect(
       callLLM<TestResponse>(defaultOptions({ maxRetries: 0 }))
@@ -201,8 +192,9 @@ describe("callLLM", () => {
   });
 
   it("throws LLM_ERROR on empty response content", async () => {
-    mockCreate.mockResolvedValue({
-      choices: [{ message: { content: null } }],
+    mockGenerateContent.mockResolvedValue({
+      text: undefined,
+      usageMetadata: { promptTokenCount: 0, candidatesTokenCount: 0 },
     });
 
     await expect(
@@ -220,7 +212,7 @@ describe("callLLM", () => {
 
   it("throws LLM_ERROR on 401 auth error (no retry)", async () => {
     const authError = { status: 401, message: "Unauthorized" };
-    mockCreate.mockRejectedValue(authError);
+    mockGenerateContent.mockRejectedValue(authError);
 
     try {
       await callLLM<TestResponse>(defaultOptions({ maxRetries: 3 }));
@@ -231,7 +223,7 @@ describe("callLLM", () => {
     }
 
     // Should only be called once — no retries for auth errors
-    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
   });
 
   it("passes model, temperature, and maxTokens to the API", async () => {
@@ -241,19 +233,23 @@ describe("callLLM", () => {
 
     await callLLM<TestResponse>(
       defaultOptions({
-        model: "GPT-4o",
+        model: "gemini-2.5-pro",
         temperature: 0.3,
         maxTokens: 300,
       })
     );
 
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(mockGenerateContent).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "GPT-4o",
-        temperature: 0.3,
-        max_tokens: 300,
-      }),
-      expect.anything()
+        model: "gemini-2.5-pro",
+        contents: [{ role: "user", parts: [{ text: "Generate a sentence." }] }],
+        config: expect.objectContaining({
+          systemInstruction: "You are a helpful assistant.",
+          temperature: 0.3,
+          maxOutputTokens: 300,
+          responseMimeType: "application/json",
+        }),
+      })
     );
   });
 });

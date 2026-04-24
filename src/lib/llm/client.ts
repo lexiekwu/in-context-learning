@@ -1,31 +1,23 @@
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { env } from "@/lib/env";
 
 /**
- * Poe API client using the OpenAI-compatible interface.
+ * Google Gemini API client (first-party, via Google AI Studio / Generative Language API).
  *
- * All LLM calls go through Poe's API gateway, which provides access
- * to multiple model families (Gemini, GPT, Claude, etc.) via a single
- * API key and billing account.
- *
- * IMPORTANT: We wrap global fetch to disable Next.js caching/deduplication
- * which can cause outbound LLM API calls to hang or timeout.
+ * All LLM calls go through Google's first-party Gemini API. The SDK handles
+ * auth via the GEMINI_API_KEY env var (passed explicitly so a missing/empty
+ * key fails fast at client construction in production).
  */
 
-// Use undici's fetch to bypass Next.js's patched global fetch, which causes
-// outbound LLM API calls to hang/timeout due to caching and request deduplication.
-import { fetch as undiciFetch } from "undici";
-
-export const poe = new OpenAI({
-  apiKey: env.POE_API_KEY,
-  baseURL: "https://api.poe.com/v1",
-  maxRetries: 0, // We handle retries in callLLM — disable SDK retries to avoid nested retry loops
-  timeout: 10_000, // 10s timeout at SDK level as a safety net
-  fetch: undiciFetch as unknown as typeof globalThis.fetch,
+export const gemini = new GoogleGenAI({
+  apiKey: env.GEMINI_API_KEY,
+  httpOptions: {
+    timeout: 10_000, // 10s timeout at SDK level as a safety net (callLLM enforces its own)
+  },
 });
 
-/** Default model for all LLM calls (Poe bot name). */
-export const DEFAULT_MODEL = "Gemini-2.5-Flash";
+/** Default model for all LLM calls. */
+export const DEFAULT_MODEL = "gemini-2.5-flash";
 
 /** Fallback model for quality-sensitive calls (e.g., translation checking). */
-export const FALLBACK_MODEL = "Gemini-2.5-Pro";
+export const FALLBACK_MODEL = "gemini-2.5-pro";

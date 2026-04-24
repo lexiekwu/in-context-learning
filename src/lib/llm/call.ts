@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { poe, DEFAULT_MODEL } from "./client";
+import { gemini, DEFAULT_MODEL } from "./client";
 import { AppError, ErrorCode } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 
@@ -13,7 +13,7 @@ export interface CallLLMOptions<T> {
   schema: z.ZodSchema<T>;
   /** Max retries on failure (default: 1). */
   maxRetries?: number;
-  /** Model override (default: Gemini-2.5-Flash). */
+  /** Model override (default: gemini-2.5-flash). */
   model?: string;
   /** Temperature (default: 0.7). */
   temperature?: number;
@@ -63,18 +63,11 @@ function isRateLimitError(error: unknown): boolean {
   return false;
 }
 
-/** Check if an error is an auth failure (401). */
+/** Check if an error is an auth failure (401/403). */
 function isAuthError(error: unknown): boolean {
   if (error && typeof error === "object" && "status" in error) {
-    return (error as { status: number }).status === 401;
-  }
-  return false;
-}
-
-/** Check if an error is a points-exhausted / payment required (402). */
-function isPaymentError(error: unknown): boolean {
-  if (error && typeof error === "object" && "status" in error) {
-    return (error as { status: number }).status === 402;
+    const status = (error as { status: number }).status;
+    return status === 401 || status === 403;
   }
   return false;
 }
@@ -92,7 +85,8 @@ function sleep(ms: number): Promise<void> {
  *
  * - 10 second timeout per attempt
  * - 1 retry on failure (configurable)
- * - Strips code fences before JSON.parse
+ * - Native JSON mode via responseMimeType (Gemini returns JSON directly)
+ * - Strips code fences as a safety net if the model still wraps output
  * - Validates parsed JSON against the provided Zod schema
  * - Throws typed AppError for: timeout, malformed JSON, rate limit, auth
  */
@@ -120,19 +114,17 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
       let response;
       callStart = Date.now();
       try {
-        response = await poe.chat.completions.create(
-          {
-            model,
-            messages: [
-              { role: "system", content: systemMessage },
-              { role: "user", content: userMessage },
-            ],
+        response = await gemini.models.generateContent({
+          model,
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
+          config: {
+            systemInstruction: systemMessage,
             temperature,
-            max_tokens: maxTokens,
-            response_format: { type: "json_object" },
+            maxOutputTokens: maxTokens,
+            responseMimeType: "application/json",
+            abortSignal: controller.signal,
           },
-          { signal: controller.signal }
-        );
+        });
       } finally {
         clearTimeout(timeoutId);
       }
@@ -147,12 +139,12 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
       logLlmCall({
         model,
         purpose,
-        promptTokens: response.usage?.prompt_tokens ?? 0,
-        completionTokens: response.usage?.completion_tokens ?? 0,
+        promptTokens: response.usageMetadata?.promptTokenCount ?? 0,
+        completionTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
         durationMs,
       });
 
-      const content = response.choices[0]?.message?.content;
+      const content = response.text;
       if (!content) {
         throw new AppError(
           ErrorCode.LLM_ERROR,
@@ -160,7 +152,7 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
         );
       }
 
-      // Strip markdown code fences if present
+      // Strip markdown code fences if present (safety net; responseMimeType should prevent this)
       const cleaned = stripCodeFences(content);
 
       // Parse JSON
@@ -205,19 +197,11 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
         );
       }
 
-      // Payment / points exhausted should not be retried
-      if (isPaymentError(error)) {
-        throw new AppError(
-          ErrorCode.LLM_ERROR,
-          "LLM API points exhausted. AI features temporarily unavailable."
-        );
-      }
-
       const attemptDurationMs = Date.now() - callStart;
       const errorName = error instanceof Error ? error.name : String(error);
       const errorMsg = error instanceof Error ? error.message : String(error);
 
-      // Rate limit — back off then retry
+      // Rate limit / quota exhausted — back off then retry
       if (isRateLimitError(error)) {
         const backoffMs = Math.pow(2, attempt) * 1000;
         logger.warn({ purpose, attempt, attemptDurationMs, backoffMs }, "LLM rate limited");
@@ -231,7 +215,7 @@ export async function callLLM<T>(options: CallLLMOptions<T>): Promise<T> {
         );
       }
 
-      // Timeout (AbortError) — check both native DOMException and OpenAI SDK's wrapped error
+      // Timeout (AbortError) — check both native DOMException and wrapped variants
       const isAbort =
         (error instanceof DOMException && error.name === "AbortError") ||
         (error instanceof Error && error.name === "AbortError") ||

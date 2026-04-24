@@ -10,7 +10,7 @@
 | ORM | Prisma | Type-safe database client generated from schema. Declarative migrations. Excellent TypeScript DX. |
 | Auth | Auth.js (NextAuth v5) | Built-in Google OAuth provider, JWT sessions, middleware integration. Battle-tested in Next.js ecosystem. |
 | SRS | ts-fsrs | TypeScript implementation of the FSRS-5 algorithm. Handles all scheduling math: `repeat(card, rating)` returns new state + next due date. |
-| AI | Poe API → Gemini 2.5 Flash | OpenAI-compatible API gateway (`https://api.poe.com/v1`). Uses `openai` npm package. Points-based pricing. Underlying model: Gemini 2.5 Flash (Poe bot name: `Gemini-2.5-Flash`). |
+| AI | Google Gemini API → Gemini 2.5 Flash | First-party Gemini API (Google AI Studio) via `@google/genai` SDK. Native JSON mode via `responseMimeType: "application/json"`. Model ID: `gemini-2.5-flash`. |
 | Payments | Stripe | Checkout Sessions for payment, Customer Portal for self-service, Webhooks for event-driven status updates. |
 | Hosting | Vercel | Zero-config Next.js deployment. Serverless functions, edge middleware, global CDN, preview deploys. |
 | Monitoring | Vercel Analytics + Sentry | Vercel for Web Vitals and usage metrics. Sentry for error tracking, performance traces, and alerting. |
@@ -58,7 +58,7 @@
           │                      │                      │
           ▼                      ▼                      ▼
 ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  Supabase        │  │  Poe API         │  │  Stripe API      │
+│  Supabase        │  │  Gemini API      │  │  Stripe API      │
 │  (PostgreSQL)    │  │  (poe.com/v1)    │  │                  │
 │                  │  │                  │  │  • Checkout      │
 │  • Users         │  │  → Gemini 2.5    │  │  • Webhooks      │
@@ -81,10 +81,10 @@
    Browser → GET /api/quiz/next-card → DB: query due cards (FSRS) → return card
 
 3. Generate sentence
-   Browser → POST /api/quiz/generate-sentence → Poe API (Gemini 2.5 Flash): generate sentence → return sentence + word breakdown
+   Browser → POST /api/quiz/generate-sentence → Google Gemini API (2.5 Flash): generate sentence → return sentence + word breakdown
 
 4. User types translation, submits
-   Browser → POST /api/quiz/check-translation → Poe API (Gemini 2.5 Flash): grade translation → return correct/incorrect + feedback
+   Browser → POST /api/quiz/check-translation → Google Gemini API (2.5 Flash): grade translation → return correct/incorrect + feedback
 
 5. User types pinyin, submits
    Browser → POST /api/quiz/check-pinyin → Server: string comparison → return correct/incorrect
@@ -451,8 +451,8 @@ Notes:
 
 | Metric | Target | Strategy |
 |--------|--------|----------|
-| LLM sentence generation | < 3s | Non-streaming via Poe API; show loading skeleton. Use Gemini 2.5 Flash. Prefetch next card's sentence. Cache sentences per card for re-reviews within same day. |
-| LLM translation check | < 2s | Non-streaming via Poe API. Gemini 2.5 Flash. Concise system prompt. |
+| LLM sentence generation | < 3s | Non-streaming via the Gemini API; show loading skeleton. Use Gemini 2.5 Flash. Prefetch next card's sentence. Cache sentences per card for re-reviews within same day. |
+| LLM translation check | < 2s | Non-streaming via the Gemini API. Gemini 2.5 Flash. Concise system prompt. |
 | Page load (LCP) | < 1.5s | Server components for initial render. No client-side data fetching for above-the-fold content. Static shell + streaming. |
 | API responses (non-LLM) | < 200ms | Prisma query optimization. Database indexes on hot paths. Connection pooling via Supabase. |
 | Database queries | < 50ms | Composite indexes on `(userId, due)` and `(userId, reviewedAt)`. Avoid N+1 queries. Use `select` to limit returned columns. |
@@ -462,9 +462,9 @@ Notes:
 ### LLM Latency Mitigation
 
 1. **Loading indicators:** Show a skeleton/spinner immediately when an LLM call starts. The sentence display area shows a pulsing placeholder.
-2. **Prefetching:** When the user is reviewing a card, prefetch the next card's sentence in the background via a queued request to the Poe API.
+2. **Prefetching:** When the user is reviewing a card, prefetch the next card's sentence in the background via a queued request to the Gemini API.
 3. **Caching:** If a user sees the same card again on the same day (e.g., after an AGAIN rating), reuse the previously generated sentence rather than calling the LLM again.
-4. **Timeout & retry:** 10s timeout on Poe API calls. One automatic retry on timeout. After second failure, show error with "Try Again" button.
+4. **Timeout & retry:** 10s timeout on Gemini API calls. One automatic retry on timeout. After second failure, show error with "Try Again" button.
 
 ---
 
@@ -570,7 +570,7 @@ Three LLM call types, each with full prompt templates, Zod validation schemas, a
 - **Translation checking:** Evaluates whether the user's English translation captures the sentence meaning, with emphasis on the target word. Returns boolean `correct` (LLM-determined, not score-threshold). Temperature 0.3.
 - **AI card creation:** Given a Chinese or English word, returns traditional characters, numbered pinyin, meaning, and an example sentence. Temperature 0.5.
 
-All calls go through the Poe API (OpenAI-compatible, `openai` npm package). Since Poe does not support structured JSON output (`response_format`), JSON formatting is enforced via prompts and all responses are validated server-side with Zod schemas before returning to the client. A code-fence stripping step handles occasional markdown wrapping.
+All calls go through the first-party Gemini API via the `@google/genai` SDK. Structured JSON output is enabled via `responseMimeType: "application/json"`, and all responses are validated server-side with Zod schemas before returning to the client. A code-fence stripping step handles any stray markdown wrapping.
 
 ### Database Connection Pooling
 

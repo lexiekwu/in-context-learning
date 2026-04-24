@@ -12,7 +12,7 @@ This document defines the AI coding agents that will build the Mandarin flashcar
 | **Data Layer** | Prisma schema, DB migrations, seed data | 1 | 02, 03 |
 | **Auth** | Auth.js, Google OAuth, session middleware, subscription gating | 1, 3 | 02, 05 |
 | **Quiz Engine** | FSRS integration, card selection, quiz API routes, pinyin verification | 2 | 01, 02, 03 |
-| **LLM Integration** | Poe API client, 3 LLM call types, Zod validation, caching, prefetching | 2 | 04 |
+| **LLM Integration** | Gemini API client, 3 LLM call types, Zod validation, caching, prefetching | 2 | 04 |
 | **Frontend** | Quiz UI state machine, flashcard CRUD UI, metrics dashboard, responsive/mobile | 2, 3, 4 | 01, 05 |
 | **Billing** | Stripe checkout, webhooks, subscription status, view-only mode, data export | 3 | 02, 05 |
 | **QA** | Test strategy, unit/integration/E2E tests, edge case verification | 2, 3, 4 | 01, 06 |
@@ -149,10 +149,10 @@ This document defines the AI coding agents that will build the Mandarin flashcar
 
 ### 5. LLM Integration
 
-**Mission:** Build the Poe API client, implement all 3 LLM call types with Zod validation, and add caching/prefetching for latency mitigation.
+**Mission:** Build the Gemini API client, implement all 3 LLM call types with Zod validation, and add caching/prefetching for latency mitigation.
 
 **Owns:**
-- `lib/llm/client.ts` — Poe API client (OpenAI SDK with `baseURL: "https://api.poe.com/v1"`)
+- `lib/llm/client.ts` — Gemini API client (`@google/genai` SDK, `GEMINI_API_KEY` env var)
 - `lib/llm/call.ts` — Generic `callLLM<T>()` with retry, timeout (10s), code-fence stripping, Zod validation
 - `lib/llm/schemas.ts` — All 3 Zod schemas: `SentenceGenerationResponse`, `TranslationCheckResponse`, `AICardCreationResponse`, `WordBreakdownItem`
 - `lib/llm/prompts.ts` — System messages and user message templates for all 3 call types
@@ -169,7 +169,7 @@ This document defines the AI coding agents that will build the Mandarin flashcar
 **Dependencies:** Orchestrator (scaffolding), Data Layer (ReviewLog for caching, Flashcard for card lookup), Auth (middleware protecting LLM endpoints)
 
 **Deliverables:**
-- [ ] Poe API client using `openai` npm package with custom `baseURL`
+- [ ] Gemini API client using `@google/genai` SDK
 - [ ] `callLLM<T>()` generic function: retry (1 retry), 10s timeout, code-fence stripping, Zod parse
 - [ ] All 3 Zod schemas copied verbatim from `04-llm-integration.md` Section 5
 - [ ] All 3 prompt templates copied verbatim from `04-llm-integration.md` Section 1
@@ -294,7 +294,7 @@ This document defines the AI coding agents that will build the Mandarin flashcar
 - Integration tests for API routes: quiz flow, flashcard CRUD, billing webhooks
 - E2E tests for critical user journeys: sign in → create card → quiz → submit result
 - Edge case verification from `01-quiz-flow.md` Section 4 and `06-decisions.md` known issues
-- Test fixtures and mocks (Poe API mock, Stripe webhook mock, Prisma test database)
+- Test fixtures and mocks (Gemini API mock, Stripe webhook mock, Prisma test database)
 
 **Spec references:** `01-quiz-flow.md` (edge case table — 13 scenarios), `06-decisions.md` (known minor issues to verify during build)
 
@@ -320,7 +320,7 @@ This document defines the AI coding agents that will build the Mandarin flashcar
   - Tone-marked pinyin input (soft rejection, not counted as incorrect)
   - Page refresh mid-quiz (localStorage recovery)
   - Idle timeout (5-min auto-pause)
-- [ ] Poe API mock for deterministic LLM responses in tests
+- [ ] Gemini API mock for deterministic LLM responses in tests
 - [ ] Stripe webhook mock with signature generation
 
 **Phase activity:**
@@ -409,14 +409,14 @@ Orchestrator ──┐
 | `/api/auth/*` | Auth | Auth.js managed routes |
 | `/api/quiz/start` | Quiz Engine | |
 | `/api/quiz/next-card` | Quiz Engine | |
-| `/api/quiz/generate-sentence` | LLM Integration | Calls Poe API |
-| `/api/quiz/check-translation` | LLM Integration | Calls Poe API |
+| `/api/quiz/generate-sentence` | LLM Integration | Calls Gemini API |
+| `/api/quiz/check-translation` | LLM Integration | Calls Gemini API |
 | `/api/quiz/check-pinyin` | Quiz Engine | Server-side string comparison, no LLM |
 | `/api/quiz/submit-result` | Quiz Engine | FSRS scheduling |
 | `/api/quiz/today-stats` | Quiz Engine | Aggregation query |
 | `/api/flashcards` (CRUD) | Quiz Engine | GET, POST, PUT, DELETE |
-| `/api/flashcards/ai-create` | LLM Integration | Calls Poe API |
-| `/api/flashcards/quick-save` | LLM Integration | May call Poe API |
+| `/api/flashcards/ai-create` | LLM Integration | Calls Gemini API |
+| `/api/flashcards/quick-save` | LLM Integration | May call Gemini API |
 | `/api/flashcards/export` | Billing | Not subscription-gated |
 | `/api/metrics/*` | Frontend | Aggregation queries, co-owned with dashboard UI |
 | `/api/billing/*` | Billing | Stripe integration |

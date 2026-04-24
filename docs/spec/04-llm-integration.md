@@ -46,11 +46,11 @@ The app makes exactly three types of LLM calls. Each is defined with its trigger
 
 | Setting | Value |
 |---------|-------|
-| Model | `Gemini-2.5-Flash` (Poe bot name) |
+| Model | `gemini-2.5-flash` (Gemini API model ID) |
 | Temperature | 0.7 |
 | Max tokens | 500 |
 | Streaming | No |
-| Response format | Prompt-based JSON (Poe API does not support `response_mime_type`) |
+| Response format | Native JSON via `responseMimeType: "application/json"` |
 
 **Full Prompt:**
 
@@ -129,11 +129,11 @@ Respond with JSON in this exact format:
 
 | Setting | Value |
 |---------|-------|
-| Model | `Gemini-2.5-Flash` (Poe bot name) |
+| Model | `gemini-2.5-flash` (Gemini API model ID) |
 | Temperature | 0.3 |
 | Max tokens | 300 |
 | Streaming | No |
-| Response format | Prompt-based JSON (Poe API does not support `response_mime_type`) |
+| Response format | Native JSON via `responseMimeType: "application/json"` |
 
 **Full Prompt:**
 
@@ -213,11 +213,11 @@ Respond with JSON in this exact format:
 
 | Setting | Value |
 |---------|-------|
-| Model | `Gemini-2.5-Flash` (Poe bot name) |
+| Model | `gemini-2.5-flash` (Gemini API model ID) |
 | Temperature | 0.5 |
 | Max tokens | 300 |
 | Streaming | No |
-| Response format | Prompt-based JSON (Poe API does not support `response_mime_type`) |
+| Response format | Native JSON via `responseMimeType: "application/json"` |
 
 **Full Prompt:**
 
@@ -263,61 +263,59 @@ Respond with JSON in this exact format:
 
 ## 2. Model Recommendation & Cost Analysis
 
-### API Gateway: Poe API
+### API Provider: Google Gemini API (first-party)
 
-All LLM calls go through the **Poe API** (`https://api.poe.com/v1`), which provides an OpenAI-compatible interface to multiple model providers. This is used instead of calling model providers directly.
+All LLM calls go through the **Google Gemini API** (Generative Language API, a.k.a. Google AI Studio) using the official `@google/genai` SDK.
 
-**Why Poe API:**
+**Why the first-party Gemini API:**
 
-- OpenAI-compatible REST API — uses the standard `openai` npm package with a different `baseURL`.
-- Access to multiple model families (Gemini, GPT, Claude, etc.) through a single API key and billing account.
-- 500 requests/min rate limit — generous for our use case.
-- Points-based pricing roughly equivalent to provider costs.
+- First-party access to Gemini models with no gateway/middleman layer.
+- Native JSON output mode (`responseMimeType: "application/json"`) for reliable structured responses.
+- Straightforward per-token pricing, no subscription plans or points.
+- Official SDK with built-in abort-signal, retries, and typed errors.
 
-**Poe API setup:**
+**Gemini API setup:**
 
 ```typescript
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
-const client = new OpenAI({
-  apiKey: process.env.POE_API_KEY,
-  baseURL: "https://api.poe.com/v1",
+const gemini = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
 });
 ```
 
-### Primary Model: Gemini 2.5 Flash (via Poe)
+Obtain an API key at [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 
-**Poe bot name:** `Gemini-2.5-Flash`
+### Primary Model: Gemini 2.5 Flash
+
+**Model ID:** `gemini-2.5-flash`
 
 - Strong multilingual capabilities, particularly for Chinese language tasks.
 - Handles traditional/simplified Chinese characters and pinyin formatting reliably.
 - Fast inference — suitable for interactive use.
 
-### Fallback Model: Gemini 2.5 Pro (via Poe)
+### Fallback Model: Gemini 2.5 Pro
 
-**Poe bot name:** `Gemini-2.5-Pro`
+**Model ID:** `gemini-2.5-pro`
 
 If Gemini 2.5 Flash produces quality issues (particularly for translation checking, where nuance matters most), the translation checking call can be upgraded to Gemini 2.5 Pro. This is a per-call `model` parameter change, not a global switch.
 
-### Key Limitation: No Structured JSON Output
+### Structured JSON Output
 
-The Poe API does **not** support `response_format` or `response_mime_type` for guaranteed JSON schema adherence. Instead, we rely on:
+The Gemini API supports native JSON mode. All calls set `responseMimeType: "application/json"` in the request config, so the model returns valid JSON directly. As a safety net:
 
-1. **Prompt-based JSON:** All system prompts end with "Respond with valid JSON only. No markdown, no code fences, no extra text."
-2. **Zod validation:** Every response is parsed with `JSON.parse()` then validated against a Zod schema (see Section 5).
-3. **Retry on failure:** If the response is not valid JSON or fails Zod validation, retry once with the same prompt. Gemini models follow JSON formatting instructions reliably (~95%+ of the time), so one retry covers the remaining edge cases.
+1. **Code-fence stripping:** A helper strips any stray markdown fences before `JSON.parse()` (rarely hit, but cheap insurance).
+2. **Zod validation:** Every response is parsed and validated against a Zod schema (see Section 5).
+3. **Retry on failure:** If parsing or validation fails, retry once. This is rare with native JSON mode.
 
 ### Cost Model
 
-**Poe pricing model:** Points-based, tied to a subscription plan. Poe charges roughly the same per-token rates as the underlying providers, wrapped in a points abstraction.
+**Gemini pricing (USD per 1M tokens, ≤200K context tier):**
 
-| Plan | Monthly Cost | Points |
-|------|-------------|--------|
-| Mid | $19.99/mo | 1,000,000 points/mo |
-| Pro | $49.99/mo | 2,500,000 points/mo |
-| Ultra | $99.99/mo | 5,000,000 points/mo |
-| Enterprise | $249.99/mo | 12,500,000 points/mo |
-| Add-on points | $30 per 1M | No transaction fees |
+| Model | Input | Output |
+|-------|-------|--------|
+| Gemini 2.5 Flash | $0.30 | $2.50 |
+| Gemini 2.5 Pro | $1.25 | $10.00 |
 
 **Per-card token estimates:**
 
@@ -329,26 +327,15 @@ The Poe API does **not** support `response_format` or `response_mime_type` for g
 
 Card creation is excluded from per-card cost since it only happens when the user manually creates a card (estimated 2-5 times/day).
 
-**Estimated point cost per card:** ~1 point per card review (varies by model pricing). At 100 cards/day per user, that's ~100 points/day or ~3,000 points/month per active user.
+**Cost per card review (Gemini 2.5 Flash):** ~$0.0011 (900 input × $0.30/M + 300 output × $2.50/M).
 
-**Scaling estimates:**
-
-| Active Users | Points/month | Recommended Plan |
-|-------------|-------------|-----------------|
-| 1-10 | ~30,000 | Mid ($19.99/mo) |
-| 10-100 | ~300,000 | Mid ($19.99/mo) |
-| 100-500 | ~1,500,000 | Pro ($49.99/mo) |
-| 500-2,000 | ~6,000,000 | Ultra ($99.99/mo) + add-ons |
-| 2,000+ | ~15,000,000+ | Enterprise ($249.99/mo) + add-ons |
-
-**Margin analysis at $4.99/mo subscription:**
-
-At early scale (<500 users), the fixed Poe subscription cost is low relative to revenue. As usage grows, the add-on points at $30/1M become the primary cost driver. The per-token cost through Poe is roughly equivalent to direct Gemini API pricing.
+At 100 cards/day per active user, that's ~$0.11/user/day or ~$3.30/user/month.
 
 **Cost optimization levers:**
 - **Same-day sentence caching:** Reuse sentences for re-reviewed cards (see Section 4). Saves ~50% of LLM calls for users who fail cards.
-- **Model selection:** Switch non-critical calls (e.g., AI card creation) to cheaper models like `Gemini-2.0-Flash-Lite` via Poe.
-- **Direct API migration:** If costs become significant at scale (10,000+ users), migrate from Poe to direct Gemini API to access context caching (90% input discount) and batch API (50% discount).
+- **Model selection:** Switch non-critical calls (e.g., AI card creation) to cheaper models like `gemini-2.5-flash-lite`.
+- **Context caching:** For heavy system prompts, Gemini supports explicit context caching with a 90% input-token discount — worth investigating at scale.
+- **Batch API:** 50% discount for non-interactive jobs (not applicable to the quiz flow, but useful for back-office tasks).
 
 ---
 
@@ -370,11 +357,10 @@ Every LLM call is wrapped in a resilient handler that addresses these failure mo
 ### Retry Implementation (pseudocode)
 
 ```typescript
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 
-const poe = new OpenAI({
-  apiKey: process.env.POE_API_KEY,
-  baseURL: "https://api.poe.com/v1",
+const gemini = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 async function callLLM<T>(
@@ -384,17 +370,22 @@ async function callLLM<T>(
 ): Promise<T> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await poe.chat.completions.create({
-        model: config.model, // e.g. "Gemini-2.5-Flash"
-        messages: config.messages,
-        temperature: config.temperature,
-        max_tokens: config.maxTokens,
+      const response = await gemini.models.generateContent({
+        model: config.model, // e.g. "gemini-2.5-flash"
+        contents: [{ role: "user", parts: [{ text: config.userMessage }] }],
+        config: {
+          systemInstruction: config.systemMessage,
+          temperature: config.temperature,
+          maxOutputTokens: config.maxTokens,
+          responseMimeType: "application/json",
+        },
       });
 
-      const content = response.choices[0]?.message?.content;
+      const content = response.text;
       if (!content) throw new Error("Empty response from LLM");
 
-      // Strip markdown code fences if present (LLM may wrap JSON in ```json ... ```)
+      // Strip markdown code fences as a safety net — native JSON mode usually
+      // prevents this, but a cheap fallback for occasional stray fences.
       const cleaned = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
       const parsed = JSON.parse(cleaned);
       return schema.parse(parsed); // Zod validation
@@ -410,7 +401,7 @@ async function callLLM<T>(
 }
 ```
 
-**Note on JSON parsing:** Since the Poe API does not guarantee structured JSON output, the response may occasionally include markdown code fences (`` ```json ... ``` ``) around the JSON. The `cleaned` step strips these before parsing. Zod validation catches any remaining format issues.
+**Note on JSON parsing:** The Gemini API supports native JSON output via `responseMimeType: "application/json"`, so the model returns valid JSON directly. The code-fence-stripping step is kept as a cheap safety net for rare cases where stray fences slip through. Zod validation catches any remaining format issues.
 
 ---
 
@@ -582,7 +573,7 @@ export {
 
 ## 6. Streaming vs. Non-Streaming
 
-All calls use **non-streaming mode**. The Poe API does support streaming, but since all responses are JSON that must be fully parsed and Zod-validated before use, streaming provides no UX benefit.
+All calls use **non-streaming mode**. The Gemini API does support streaming, but since all responses are JSON that must be fully parsed and Zod-validated before use, streaming provides no UX benefit.
 
 | Call | Mode | Rationale |
 |------|------|-----------|
@@ -620,8 +611,8 @@ async function prefetchNextSentence(sessionId: string): Promise<void> {
 
 ### API Key Protection
 
-- **All LLM calls are server-side only.** The Poe API key is stored in an environment variable (`POE_API_KEY`) and never sent to the client. Obtain the key at [poe.com/api_key](https://poe.com/api_key).
-- LLM endpoints are Next.js Route Handlers (e.g., `/api/quiz/generate-sentence`), not client-side `fetch` calls to Poe directly.
+- **All LLM calls are server-side only.** The Gemini API key is stored in an environment variable (`GEMINI_API_KEY`) and never sent to the client. Obtain the key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+- LLM endpoints are Next.js Route Handlers (e.g., `/api/quiz/generate-sentence`), not client-side `fetch` calls to Google directly.
 
 ### Prompt Injection Prevention
 

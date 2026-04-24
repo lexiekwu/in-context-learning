@@ -17,8 +17,8 @@ const serverEnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1),
   NEXTAUTH_URL: z.string().url(),
 
-  // Poe API (optional in dev — required for LLM features)
-  POE_API_KEY: z.string().min(1).optional(),
+  // Google Gemini API (optional in dev — required for LLM features)
+  GEMINI_API_KEY: z.string().min(1).optional(),
 
   // Stripe (optional in dev — required for billing)
   STRIPE_SECRET_KEY: z.string().min(1).optional(),

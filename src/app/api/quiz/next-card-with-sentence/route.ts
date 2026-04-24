@@ -130,8 +130,8 @@ export async function GET(request: NextRequest) {
       const characterSet = getCharacterSet(langCode, userRecord?.languageVariant) ?? "traditional";
 
       // Dev fallback for missing API key
-      const poeKey = process.env.POE_API_KEY;
-      if (!poeKey || poeKey.startsWith("your")) {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (!geminiKey || geminiKey.startsWith("your")) {
         const word = flashcard.word;
         const meaning = flashcard.englishMeaning;
         const pin = flashcard.reading ?? "";

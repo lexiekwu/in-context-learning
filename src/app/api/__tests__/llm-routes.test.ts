@@ -72,7 +72,7 @@ const mockFlashcard = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  process.env.POE_API_KEY = "test-poe-key";
+  process.env.GEMINI_API_KEY = "test-gemini-key";
 });
 
 // ---------------------------------------------------------------------------

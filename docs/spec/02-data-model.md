@@ -371,7 +371,7 @@ Get the next card due for review. The server runs the FSRS scheduler to select t
 
 #### `POST /api/quiz/generate-sentence`
 
-Generate a natural Chinese sentence containing the target word. Calls Gemini 2.5 Flash via Poe API.
+Generate a natural Chinese sentence containing the target word. Calls Gemini 2.5 Flash via the Gemini API.
 
 **Request:**
 ```json
@@ -408,7 +408,7 @@ Generate a natural Chinese sentence containing the target word. Calls Gemini 2.5
 
 #### `POST /api/quiz/check-translation`
 
-Check the user's English translation against the generated sentence. Calls Gemini 2.5 Flash via Poe API.
+Check the user's English translation against the generated sentence. Calls Gemini 2.5 Flash via the Gemini API.
 
 **Request:**
 ```json
@@ -910,8 +910,8 @@ All error responses follow a consistent shape:
 | 409 | `DUPLICATE` | Unique constraint violation (e.g., duplicate card) |
 | 429 | `RATE_LIMITED` | Too many requests |
 | 500 | `INTERNAL_ERROR` | Unexpected server error |
-| 502 | `LLM_ERROR` | Poe API / LLM failure |
-| 504 | `LLM_TIMEOUT` | Poe API timeout |
+| 502 | `LLM_ERROR` | Gemini API / LLM failure |
+| 504 | `LLM_TIMEOUT` | Gemini API timeout |
 
 ### HTTP Status Codes
 
@@ -928,5 +928,5 @@ All error responses follow a consistent shape:
 | 409 | Conflict (duplicate resource) |
 | 429 | Rate limited |
 | 500 | Internal server error |
-| 502 | Upstream service error (Poe API) |
+| 502 | Upstream service error (Gemini API) |
 | 504 | Upstream timeout |
