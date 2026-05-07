@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
             characterSet,
           }),
           schema: SentenceGenerationResponseSchema,
-          temperature: 0.7,
+          temperature: 0.9,
           maxTokens: 2000,
           purpose: "generate-sentence",
         });

@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
         language: langCode,
       }),
       schema: responseSchema,
-      temperature: 0.7,
+      temperature: 0.9,
       maxTokens: 2000,
       purpose: "generate-sentence",
     });
