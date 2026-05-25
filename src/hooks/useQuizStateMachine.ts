@@ -579,7 +579,7 @@ export function useQuizStateMachine(
         // Immediately show CARD_COMPLETE and update stats
         setSessionStats((prev) => {
           const newReviewed = prev.reviewed + 1;
-          const newCorrect = prev.correct + pointsGained;
+          const newCorrect = prev.correct + Math.floor(pointsGained);
           const newStreak = cardCorrect ? prev.currentStreak + 1 : 0;
           const newLongest = Math.max(prev.longestStreak, newStreak);
           return {
@@ -626,6 +626,7 @@ export function useQuizStateMachine(
           }
         }).catch((err: unknown) => {
           console.error("Failed to submit card result:", err);
+          setError(err instanceof Error ? err.message : "Failed to save result. Please check your connection.");
         });
       } catch (err) {
         setError(

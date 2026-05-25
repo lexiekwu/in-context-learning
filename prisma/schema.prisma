@@ -115,7 +115,7 @@ model StudySession {
   startedAt     DateTime  @default(now())
   endedAt       DateTime?
   cardsReviewed Int       @default(0)
-  cardsCorrect  Float     @default(0)
+  cardsCorrect  Int       @default(0)
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   reviewLogs ReviewLog[]
