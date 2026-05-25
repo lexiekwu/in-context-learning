@@ -303,13 +303,13 @@ export default function QuizPage() {
           card={{
             id: card.flashcard.id,
             word: card.flashcard.word,
-            reading: card.flashcard.reading,
+            reading: card.flashcard.pinyin,
             englishMeaning: card.flashcard.englishMeaning,
           }}
           onUpdated={(updated) => {
             updateCurrentCard({
               word: updated.word,
-              reading: updated.reading,
+              pinyin: updated.pinyin,
               englishMeaning: updated.englishMeaning,
             });
           }}

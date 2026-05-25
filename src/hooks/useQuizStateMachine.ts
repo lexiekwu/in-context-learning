@@ -461,7 +461,7 @@ export function useQuizStateMachine(
         setCard((prev) => (prev ? { ...prev, userReading: "" } : prev));
         const result = {
           correct: false,
-          expectedReading: card.flashcard.reading || "unknown",
+          expectedReading: card.flashcard.pinyin || "unknown",
         };
         setCard((prev) =>
           prev
@@ -673,6 +673,8 @@ export function useQuizStateMachine(
     subscriptionBlocked,
     isPhonetic,
     loadNextCard,
+    updateCurrentCard,
+    deleteCurrentCard,
     submitTranslation,
     retypeTranslation,
     submitReading,
