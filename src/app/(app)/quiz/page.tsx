@@ -11,12 +11,14 @@ import { ReadingFeedback } from "@/components/quiz/ReadingFeedback";
 import { CardComplete } from "@/components/quiz/CardComplete";
 import { SessionSummary } from "@/components/quiz/SessionSummary";
 import { LoadingSkeleton } from "@/components/quiz/LoadingSkeleton";
+import EditCardDialog from "@/components/quiz/EditCardDialog";
 import * as api from "@/lib/api";
 import type { WordBreakdownEntry } from "@/types";
 import type { DailyStats } from "@/hooks/useQuizStateMachine";
 
 export default function QuizPage() {
   const [langSettings, setLangSettings] = useState<api.UserLanguageSettings | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   useEffect(() => {
     api.getUserLanguageSettings().then(setLangSettings).catch(() => {});
@@ -26,7 +28,13 @@ export default function QuizPage() {
 
   const quiz = useQuizStateMachine({ isPhonetic });
 
-  const { state: quizState, advanceFromCorrect, advanceFromCardComplete } = quiz;
+  const {
+    state: quizState,
+    advanceFromCorrect,
+    advanceFromCardComplete,
+    updateCurrentCard,
+    deleteCurrentCard,
+  } = quiz;
   const handleSwipeLeft = useCallback(() => {
     if (quizState === "TRANSLATION_CORRECT") {
       advanceFromCorrect();
@@ -165,6 +173,54 @@ export default function QuizPage() {
       )}
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-6">
+        {/* Actions bar (Edit/Delete) */}
+        <div className="mb-2 flex items-center justify-end gap-2 px-4 sm:px-8">
+          <button
+            type="button"
+            onClick={() => setIsEditOpen(true)}
+            className="rounded-md p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+            title="Edit card"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Are you sure you want to delete this card?")) {
+                deleteCurrentCard();
+              }
+            }}
+            className="rounded-md p-2 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-red-400"
+            title="Delete card"
+          >
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+          </button>
+        </div>
+
         {/* Sentence display */}
         <QuizCard
           sentence={card.sentence.sentence}
@@ -238,6 +294,27 @@ export default function QuizPage() {
           )}
         </div>
       </main>
+
+      {/* Edit Dialog */}
+      {card && (
+        <EditCardDialog
+          open={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          card={{
+            id: card.flashcard.id,
+            word: card.flashcard.word,
+            reading: card.flashcard.reading,
+            englishMeaning: card.flashcard.englishMeaning,
+          }}
+          onUpdated={(updated) => {
+            updateCurrentCard({
+              word: updated.word,
+              reading: updated.reading,
+              englishMeaning: updated.englishMeaning,
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

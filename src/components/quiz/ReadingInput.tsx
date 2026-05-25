@@ -30,11 +30,6 @@ export function ReadingInput({
 
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim();
-    if (!trimmed) {
-      setFlashRed(true);
-      setTimeout(() => setFlashRed(false), 600);
-      return;
-    }
     onSubmit(trimmed);
   }, [value, onSubmit]);
 
@@ -87,7 +82,7 @@ export function ReadingInput({
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={disabled || isLoading || !value.trim()}
+        disabled={disabled || isLoading}
         className={cn(
           "min-h-11 w-full rounded-lg px-6 py-3 text-base font-medium text-white transition-colors",
           "sm:w-auto",

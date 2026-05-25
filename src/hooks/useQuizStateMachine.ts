@@ -68,6 +68,8 @@ export interface QuizStateMachine {
 
   // Actions
   loadNextCard: () => Promise<void>;
+  updateCurrentCard: (updates: Partial<CurrentCardData["flashcard"]>) => void;
+  deleteCurrentCard: () => Promise<void>;
   submitTranslation: (translation: string) => Promise<void>;
   retypeTranslation: (translation: string) => boolean;
   submitReading: (reading: string) => Promise<void>;
@@ -303,13 +305,62 @@ export function useQuizStateMachine(
   }, [sessionId]);
 
   // -------------------------------------------------------------------------
+  // updateCurrentCard
+  // -------------------------------------------------------------------------
+  const updateCurrentCard = useCallback(
+    (updates: Partial<CurrentCardData["flashcard"]>) => {
+      setCard((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          flashcard: { ...prev.flashcard, ...updates },
+        };
+      });
+    },
+    [],
+  );
+
+  // -------------------------------------------------------------------------
+  // deleteCurrentCard
+  // -------------------------------------------------------------------------
+  const deleteCurrentCard = useCallback(async () => {
+    if (!card) return;
+    try {
+      await api.deleteFlashcard(card.flashcard.id);
+      await loadNextCard();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to delete card",
+      );
+    }
+  }, [card, loadNextCard]);
+
+  // -------------------------------------------------------------------------
   // submitTranslation
   // -------------------------------------------------------------------------
   const submitTranslation = useCallback(
     async (translation: string) => {
       if (!card?.sentence) return;
       const trimmed = translation.trim();
-      if (!trimmed) return;
+
+      if (!trimmed) {
+        // Skip/Empty translation
+        setCard((prev) =>
+          prev ? { ...prev, userTranslation: "" } : prev,
+        );
+        const result = { correct: false };
+        setCard((prev) =>
+          prev
+            ? {
+                ...prev,
+                translationResult: result,
+                currentCardCorrect: false,
+              }
+            : prev,
+        );
+        setState("TRANSLATION_INCORRECT");
+        return;
+      }
 
       const cjkMatches = trimmed.match(CJK_REGEX);
       if (cjkMatches && cjkMatches.length / trimmed.length > 0.5) {
@@ -404,7 +455,29 @@ export function useQuizStateMachine(
     async (reading: string) => {
       if (!card) return;
       const trimmed = reading.trim();
-      if (!trimmed) return;
+
+      if (!trimmed) {
+        // Skip/Empty reading
+        setCard((prev) => (prev ? { ...prev, userReading: "" } : prev));
+        const result = {
+          correct: false,
+          expectedReading: card.flashcard.reading || "unknown",
+        };
+        setCard((prev) =>
+          prev
+            ? {
+                ...prev,
+                readingResult: {
+                  correct: result.correct,
+                  expectedPinyin: result.expectedReading,
+                },
+                currentCardCorrect: false,
+              }
+            : prev,
+        );
+        setState("READING_INCORRECT");
+        return;
+      }
 
       if (TONE_MARK_REGEX.test(trimmed)) {
         setError(
@@ -485,20 +558,28 @@ export function useQuizStateMachine(
       const currentCard = cardRef.current;
       if (!currentCard || !sessionId || !currentCard.sentence) return;
       try {
-        // For phonetic languages: GOOD if translation correct on first try, else AGAIN.
-        // For non-phonetic (Chinese): GOOD if both translation AND reading correct on first try.
+        // Points logic for accuracy stats: 0.5 for def, 0.5 for pinyin
+        // Rating logic for SRS: GOOD only if both correct on first try
+        const translationCorrect = currentCard.translationResult?.correct ?? false;
+        const readingCorrect = isPhonetic ? true : (currentCard.readingResult?.correct ?? false);
+
+        const pointsGained = isPhonetic
+          ? (translationCorrect ? 1.0 : 0)
+          : (translationCorrect ? 0.5 : 0) + (readingCorrect ? 0.5 : 0);
+
         const cardCorrect = isPhonetic
           ? currentCard.currentCardCorrect
           : fromCorrectReading
             ? currentCard.currentCardCorrect
             : false;
+
         const rating = cardCorrect ? "GOOD" : "AGAIN";
         const responseTimeMs = Date.now() - currentCard.responseStartTime;
 
         // Immediately show CARD_COMPLETE and update stats
         setSessionStats((prev) => {
           const newReviewed = prev.reviewed + 1;
-          const newCorrect = prev.correct + (cardCorrect ? 1 : 0);
+          const newCorrect = prev.correct + pointsGained;
           const newStreak = cardCorrect ? prev.currentStreak + 1 : 0;
           const newLongest = Math.max(prev.longestStreak, newStreak);
           return {

@@ -133,12 +133,16 @@ export async function POST(request: NextRequest) {
         },
       }),
 
-      // 3. Increment StudySession counters
+      // 3. Increment StudySession counters with partial points
       db.studySession.update({
         where: { id: sessionId },
         data: {
           cardsReviewed: { increment: 1 },
-          ...(passed ? { cardsCorrect: { increment: 1 } } : {}),
+          cardsCorrect: {
+            increment: effectiveReadingCorrect !== null
+              ? (translationCorrect ? 0.5 : 0) + (effectiveReadingCorrect ? 0.5 : 0)
+              : (translationCorrect ? 1.0 : 0),
+          },
         },
       }),
     ]);

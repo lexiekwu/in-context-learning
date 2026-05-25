@@ -185,11 +185,25 @@ export async function getTodayReviewStats(
   const todayStart = startOfTodayUTC();
   const baseWhere = { userId, reviewedAt: { gte: todayStart } };
 
-  const [reviewedToday, correctToday, newCardsStudied] = await Promise.all([
+  const [reviewedToday, logs, newCardsStudied] = await Promise.all([
     db.reviewLog.count({ where: baseWhere }),
-    db.reviewLog.count({ where: { ...baseWhere, overallRating: "GOOD" } }),
+    db.reviewLog.findMany({
+      where: baseWhere,
+      select: { translationCorrect: true, readingCorrect: true },
+    }),
     db.reviewLog.count({ where: { ...baseWhere, priorState: "NEW" } }),
   ]);
+
+  const correctToday = logs.reduce((acc, log) => {
+    if (log.readingCorrect === null) {
+      return acc + (log.translationCorrect ? 1 : 0);
+    }
+    return (
+      acc +
+      (log.translationCorrect ? 0.5 : 0) +
+      (log.readingCorrect ? 0.5 : 0)
+    );
+  }, 0);
 
   const accuracy = reviewedToday > 0 ? correctToday / reviewedToday : 0;
 
