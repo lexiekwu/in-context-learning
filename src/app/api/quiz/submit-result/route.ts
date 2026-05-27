@@ -133,17 +133,16 @@ export async function POST(request: NextRequest) {
         },
       }),
 
-      // 3. Increment StudySession counters with whole points (for schema compatibility)
+      // 3. Increment StudySession counters
       db.studySession.update({
         where: { id: sessionId },
         data: {
           cardsReviewed: { increment: 1 },
           cardsCorrect: {
-            increment: Math.floor(
+            increment:
               effectiveReadingCorrect !== null
                 ? (translationCorrect ? 0.5 : 0) + (effectiveReadingCorrect ? 0.5 : 0)
-                : (translationCorrect ? 1.0 : 0)
-            ),
+                : (translationCorrect ? 1.0 : 0),
           },
         },
       }),

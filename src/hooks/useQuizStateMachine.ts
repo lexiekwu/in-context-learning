@@ -579,7 +579,7 @@ export function useQuizStateMachine(
         // Immediately show CARD_COMPLETE and update stats
         setSessionStats((prev) => {
           const newReviewed = prev.reviewed + 1;
-          const newCorrect = prev.correct + Math.floor(pointsGained);
+          const newCorrect = prev.correct + pointsGained;
           const newStreak = cardCorrect ? prev.currentStreak + 1 : 0;
           const newLongest = Math.max(prev.longestStreak, newStreak);
           return {

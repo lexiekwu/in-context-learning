@@ -226,11 +226,17 @@ describe("computeStreak", () => {
 
 describe("getTodayReviewStats", () => {
   it("returns correct aggregated stats", async () => {
-    // Now uses parallel count queries: total, correct (GOOD), new (priorState NEW)
+    // Now uses parallel count queries: total, logs (translation/reading), new (priorState NEW)
     mockDb.reviewLog.count
-      .mockResolvedValueOnce(4)  // reviewedToday
-      .mockResolvedValueOnce(3)  // correctToday
+      .mockResolvedValueOnce(4) // reviewedToday
       .mockResolvedValueOnce(2); // newCardsStudied
+
+    mockDb.reviewLog.findMany.mockResolvedValue([
+      { translationCorrect: true, readingCorrect: true }, // 1.0
+      { translationCorrect: true, readingCorrect: false }, // 0.5
+      { translationCorrect: false, readingCorrect: true }, // 0.5
+      { translationCorrect: true, readingCorrect: null }, // 1.0
+    ]);
 
     const result = await getTodayReviewStats("user-1");
 
@@ -243,8 +249,8 @@ describe("getTodayReviewStats", () => {
   it("returns zeros when no reviews today", async () => {
     mockDb.reviewLog.count
       .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(0);
+    mockDb.reviewLog.findMany.mockResolvedValue([]);
 
     const result = await getTodayReviewStats("user-1");
 
@@ -257,8 +263,8 @@ describe("getTodayReviewStats", () => {
   it("filters by today's date", async () => {
     mockDb.reviewLog.count
       .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(0);
+    mockDb.reviewLog.findMany.mockResolvedValue([]);
 
     await getTodayReviewStats("user-1");
 
