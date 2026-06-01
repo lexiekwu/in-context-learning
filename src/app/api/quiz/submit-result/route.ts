@@ -25,7 +25,7 @@ const requestSchema = z.object({
   userPinyin: z.string().optional().nullable(),
   pinyinCorrect: z.boolean().optional().nullable(),
   overallRating: z.enum(["GOOD", "AGAIN"]),
-  responseTimeMs: z.number().int().positive().optional(),
+  responseTimeMs: z.number().int().nonnegative().optional(),
 });
 
 /**
