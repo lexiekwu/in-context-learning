@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "StudySession" ALTER COLUMN "cardsCorrect" SET DATA TYPE DOUBLE PRECISION;
