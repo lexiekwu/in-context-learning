@@ -396,7 +396,7 @@ export function useQuizStateMachine(
           if (isPhonetic) {
             // Phonetic languages skip the reading step entirely
             setState("TRANSLATION_CORRECT");
-            submitCardResult(true);
+            submitCardResult(true, true, true);
           } else {
             setState("TRANSLATION_CORRECT");
             setState("READING_INPUT");
@@ -436,7 +436,7 @@ export function useQuizStateMachine(
       if (matched) {
         if (isPhonetic) {
           // Phonetic languages skip the reading step entirely
-          submitCardResult(false);
+          submitCardResult(true, true, false);
         } else {
           setState("READING_INPUT");
         }
@@ -511,7 +511,8 @@ export function useQuizStateMachine(
         );
 
         if (result.correct) {
-          submitCardResult(true);
+          const translationCorrect = card.translationResult?.correct ?? false;
+          submitCardResult(translationCorrect, true, card.currentCardCorrect);
         } else {
           setState("READING_INCORRECT");
         }
@@ -538,7 +539,8 @@ export function useQuizStateMachine(
       const userNorm = normalize(reading);
       const expectedNorm = normalize(card.readingResult.expectedPinyin);
       if (userNorm === expectedNorm) {
-        submitCardResult(false);
+        const translationCorrect = card.translationResult?.correct ?? false;
+        submitCardResult(translationCorrect, true, false);
         return true;
       }
       return false;
@@ -554,24 +556,17 @@ export function useQuizStateMachine(
   cardRef.current = card;
 
   const submitCardResult = useCallback(
-    async (fromCorrectReading: boolean) => {
+    async (translationCorrect: boolean, readingCorrect: boolean, isInitialTry: boolean) => {
       const currentCard = cardRef.current;
       if (!currentCard || !sessionId || !currentCard.sentence) return;
       try {
         // Points logic for accuracy stats: 0.5 for def, 0.5 for pinyin
         // Rating logic for SRS: GOOD only if both correct on first try
-        const translationCorrect = currentCard.translationResult?.correct ?? false;
-        const readingCorrect = isPhonetic ? true : (currentCard.readingResult?.correct ?? false);
-
         const pointsGained = isPhonetic
           ? (translationCorrect ? 1.0 : 0)
           : (translationCorrect ? 0.5 : 0) + (readingCorrect ? 0.5 : 0);
 
-        const cardCorrect = isPhonetic
-          ? currentCard.currentCardCorrect
-          : fromCorrectReading
-            ? currentCard.currentCardCorrect
-            : false;
+        const cardCorrect = isInitialTry && translationCorrect && readingCorrect;
 
         const rating = cardCorrect ? "GOOD" : "AGAIN";
         const responseTimeMs = Date.now() - currentCard.responseStartTime;
@@ -599,9 +594,9 @@ export function useQuizStateMachine(
           generatedSentence: currentCard.sentence.sentence,
           userTranslation: currentCard.userTranslation || "no translation",
           correctTranslation: currentCard.sentence.translation,
-          translationCorrect: currentCard.translationResult?.correct ?? false,
+          translationCorrect,
           userPinyin: currentCard.userReading || (isPhonetic ? "n/a" : "unknown"),
-          pinyinCorrect: isPhonetic ? true : (currentCard.readingResult?.correct ?? false),
+          pinyinCorrect: readingCorrect,
           responseTimeMs,
         }).then((result) => {
           const apiResult = result as unknown as {
@@ -644,7 +639,7 @@ export function useQuizStateMachine(
   const advanceFromCorrect = useCallback(() => {
     if (state === "TRANSLATION_CORRECT") {
       if (isPhonetic) {
-        submitCardResult(true);
+        submitCardResult(true, true, true);
       } else {
         setState("READING_INPUT");
       }
