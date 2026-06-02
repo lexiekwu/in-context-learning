@@ -26,7 +26,7 @@ export async function GET() {
 
     // Run migrations programmatically
     try {
-      const { stdout, stderr } = await execAsync("npx prisma migrate deploy");
+      const { stdout, stderr } = await execAsync("./node_modules/.bin/prisma migrate deploy");
 
       return NextResponse.json({
         success: true,
