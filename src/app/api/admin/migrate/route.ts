@@ -25,14 +25,25 @@ export async function GET() {
     }
 
     // Run migrations programmatically
-    const { stdout, stderr } = await execAsync("npx prisma migrate deploy");
+    try {
+      const { stdout, stderr } = await execAsync("npx prisma migrate deploy");
 
-    return NextResponse.json({
-      success: true,
-      message: "Database migrations applied successfully.",
-      stdout,
-      stderr,
-    });
+      return NextResponse.json({
+        success: true,
+        message: "Database migrations applied successfully.",
+        stdout,
+        stderr,
+      });
+    } catch (execError: any) {
+      console.error("[admin/migrate] Exec error running migrations:", execError);
+      return NextResponse.json({
+        success: false,
+        message: "Failed to execute database migrations.",
+        error: execError.message,
+        stdout: execError.stdout || "",
+        stderr: execError.stderr || "",
+      }, { status: 500 });
+    }
   } catch (error) {
     console.error("[admin/migrate] Error running migrations:", error);
     return errorResponse(error);
