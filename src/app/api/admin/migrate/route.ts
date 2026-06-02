@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { db } from "@/lib/db";
 import { errorResponse, unauthorizedError } from "@/lib/errors";
-
-const execAsync = promisify(exec);
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "lexiekwu@gmail.com")
   .split(",")
@@ -14,8 +11,8 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "lexiekwu@gmail.com")
 /**
  * GET /api/admin/migrate
  *
- * Programmatic endpoint for admins to run pending Prisma database migrations.
- * Accessible only to authorized admin emails.
+ * Programmatic endpoint to run raw SQL altering StudySession table.
+ * Accessible only to whitelisted admin emails.
  */
 export async function GET() {
   try {
@@ -24,28 +21,17 @@ export async function GET() {
       throw unauthorizedError();
     }
 
-    // Run migrations programmatically
-    try {
-      const { stdout, stderr } = await execAsync("./node_modules/.bin/prisma migrate deploy");
+    // Execute raw SQL migration directly via Prisma
+    await db.$executeRawUnsafe(
+      'ALTER TABLE "StudySession" ALTER COLUMN "cardsCorrect" SET DATA TYPE DOUBLE PRECISION;'
+    );
 
-      return NextResponse.json({
-        success: true,
-        message: "Database migrations applied successfully.",
-        stdout,
-        stderr,
-      });
-    } catch (execError: any) {
-      console.error("[admin/migrate] Exec error running migrations:", execError);
-      return NextResponse.json({
-        success: false,
-        message: "Failed to execute database migrations.",
-        error: execError.message,
-        stdout: execError.stdout || "",
-        stderr: execError.stderr || "",
-      }, { status: 500 });
-    }
-  } catch (error) {
-    console.error("[admin/migrate] Error running migrations:", error);
+    return NextResponse.json({
+      success: true,
+      message: "Database migrated successfully! 'cardsCorrect' column altered to DOUBLE PRECISION (Float).",
+    });
+  } catch (error: any) {
+    console.error("[admin/migrate] SQL migration failed:", error);
     return errorResponse(error);
   }
 }
