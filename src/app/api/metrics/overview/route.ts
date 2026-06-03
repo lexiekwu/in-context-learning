@@ -59,14 +59,19 @@ export async function GET() {
         userId,
         reviewedAt: { gte: sevenDaysAgo },
       },
-      select: { overallRating: true },
+      select: { translationCorrect: true, readingCorrect: true },
     });
 
+    let totalLookedAt = 0;
+    let totalCorrect = 0;
+    for (const r of recentReviews) {
+      totalLookedAt += r.readingCorrect !== null ? 2 : 1;
+      totalCorrect += (r.translationCorrect ? 1 : 0) + (r.readingCorrect ? 1 : 0);
+    }
+
     const last7DaysAccuracy =
-      recentReviews.length > 0
-        ? (recentReviews.filter((r) => r.overallRating === "GOOD").length /
-            recentReviews.length) *
-          100
+      totalLookedAt > 0
+        ? (totalCorrect / totalLookedAt) * 100
         : 0;
 
     return NextResponse.json({

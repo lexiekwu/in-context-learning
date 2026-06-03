@@ -226,30 +226,26 @@ describe("computeStreak", () => {
 
 describe("getTodayReviewStats", () => {
   it("returns correct aggregated stats", async () => {
-    // Now uses parallel count queries: total, logs (translation/reading), new (priorState NEW)
-    mockDb.reviewLog.count
-      .mockResolvedValueOnce(4) // reviewedToday
-      .mockResolvedValueOnce(2); // newCardsStudied
+    // Now uses parallel queries: logs (translation/reading), and count of new (priorState NEW)
+    mockDb.reviewLog.count.mockResolvedValueOnce(2); // newCardsStudied
 
     mockDb.reviewLog.findMany.mockResolvedValue([
-      { translationCorrect: true, readingCorrect: true }, // 1.0
-      { translationCorrect: true, readingCorrect: false }, // 0.5
-      { translationCorrect: false, readingCorrect: true }, // 0.5
-      { translationCorrect: true, readingCorrect: null }, // 1.0
+      { translationCorrect: true, readingCorrect: true }, // 2 lookedAt, 2 correct
+      { translationCorrect: true, readingCorrect: false }, // 2 lookedAt, 1 correct
+      { translationCorrect: false, readingCorrect: true }, // 2 lookedAt, 1 correct
+      { translationCorrect: true, readingCorrect: null }, // 1 lookedAt, 1 correct
     ]);
 
     const result = await getTodayReviewStats("user-1");
 
-    expect(result.reviewedToday).toBe(4);
-    expect(result.correctToday).toBe(3);
+    expect(result.reviewedToday).toBe(7);
+    expect(result.correctToday).toBe(5);
     expect(result.newCardsStudied).toBe(2);
-    expect(result.accuracy).toBe(0.75);
+    expect(result.accuracy).toBe(5 / 7);
   });
 
   it("returns zeros when no reviews today", async () => {
-    mockDb.reviewLog.count
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(0);
+    mockDb.reviewLog.count.mockResolvedValueOnce(0);
     mockDb.reviewLog.findMany.mockResolvedValue([]);
 
     const result = await getTodayReviewStats("user-1");
@@ -261,9 +257,7 @@ describe("getTodayReviewStats", () => {
   });
 
   it("filters by today's date", async () => {
-    mockDb.reviewLog.count
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(0);
+    mockDb.reviewLog.count.mockResolvedValueOnce(0);
     mockDb.reviewLog.findMany.mockResolvedValue([]);
 
     await getTodayReviewStats("user-1");

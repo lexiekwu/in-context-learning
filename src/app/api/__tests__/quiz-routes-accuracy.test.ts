@@ -74,7 +74,7 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
     });
   });
 
-  it("submits 0.5 points for partial correctness (translation only)", async () => {
+  it("submits 1.0 points for partial correctness (translation only)", async () => {
     const body = {
       sessionId: TEST_SESSION_ID,
       flashcardId: TEST_FLASHCARD_ID,
@@ -99,10 +99,11 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
     
     // Check the increment value in the mock call
     const sessionUpdateCall = mockDbStudySession.update.mock.calls[0][0];
-    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(0.5);
+    expect(sessionUpdateCall.data.cardsReviewed.increment).toBe(2);
+    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(1.0);
   });
 
-  it("submits 0.5 points for partial correctness (reading only)", async () => {
+  it("submits 1.0 points for partial correctness (reading only)", async () => {
     const body = {
       sessionId: TEST_SESSION_ID,
       flashcardId: TEST_FLASHCARD_ID,
@@ -123,6 +124,7 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
     const res = await submitResultPost(req as never);
     
     const sessionUpdateCall = mockDbStudySession.update.mock.calls[0][0];
-    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(0.5);
+    expect(sessionUpdateCall.data.cardsReviewed.increment).toBe(2);
+    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(1.0);
   });
 });

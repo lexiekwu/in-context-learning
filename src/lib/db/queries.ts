@@ -185,8 +185,7 @@ export async function getTodayReviewStats(
   const todayStart = startOfTodayUTC();
   const baseWhere = { userId, reviewedAt: { gte: todayStart } };
 
-  const [reviewedToday, logs, newCardsStudied] = await Promise.all([
-    db.reviewLog.count({ where: baseWhere }),
+  const [logs, newCardsStudied] = await Promise.all([
     db.reviewLog.findMany({
       where: baseWhere,
       select: { translationCorrect: true, readingCorrect: true },
@@ -194,14 +193,15 @@ export async function getTodayReviewStats(
     db.reviewLog.count({ where: { ...baseWhere, priorState: "NEW" } }),
   ]);
 
+  const reviewedToday = logs.reduce((acc, log) => {
+    return acc + (log.readingCorrect !== null ? 2 : 1);
+  }, 0);
+
   const correctToday = logs.reduce((acc, log) => {
-    if (log.readingCorrect === null) {
-      return acc + (log.translationCorrect ? 1 : 0);
-    }
     return (
       acc +
-      (log.translationCorrect ? 0.5 : 0) +
-      (log.readingCorrect ? 0.5 : 0)
+      (log.translationCorrect ? 1 : 0) +
+      (log.readingCorrect ? 1 : 0)
     );
   }, 0);
 

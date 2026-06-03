@@ -137,11 +137,13 @@ export async function POST(request: NextRequest) {
       db.studySession.update({
         where: { id: sessionId },
         data: {
-          cardsReviewed: { increment: 1 },
+          cardsReviewed: {
+            increment: effectiveReadingCorrect !== null ? 2 : 1,
+          },
           cardsCorrect: {
             increment:
               effectiveReadingCorrect !== null
-                ? (translationCorrect ? 0.5 : 0) + (effectiveReadingCorrect ? 0.5 : 0)
+                ? (translationCorrect ? 1.0 : 0) + (effectiveReadingCorrect ? 1.0 : 0)
                 : (translationCorrect ? 1.0 : 0),
           },
         },

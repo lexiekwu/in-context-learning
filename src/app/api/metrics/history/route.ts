@@ -108,7 +108,8 @@ export async function GET(request: NextRequest) {
         },
         select: {
           reviewedAt: true,
-          overallRating: true,
+          translationCorrect: true,
+          readingCorrect: true,
           priorState: true,
         },
       }),
@@ -137,10 +138,11 @@ export async function GET(request: NextRequest) {
         correct: 0,
         newCards: 0,
       };
-      entry.total++;
-      if (log.overallRating === "GOOD") {
-        entry.correct++;
-      }
+      const lookedAt = log.readingCorrect !== null ? 2 : 1;
+      const correct = (log.translationCorrect ? 1 : 0) + (log.readingCorrect ? 1 : 0);
+
+      entry.total += lookedAt;
+      entry.correct += correct;
       if (log.priorState === "NEW") {
         entry.newCards++;
       }

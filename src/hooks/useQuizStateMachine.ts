@@ -560,11 +560,11 @@ export function useQuizStateMachine(
       const currentCard = cardRef.current;
       if (!currentCard || !sessionId || !currentCard.sentence) return;
       try {
-        // Points logic for accuracy stats: 0.5 for def, 0.5 for pinyin
+        // Points logic for accuracy stats: 1 point for translation, 1 point for pinyin
         // Rating logic for SRS: GOOD only if both correct on first try
         const pointsGained = isPhonetic
-          ? (translationCorrect ? 1.0 : 0)
-          : (translationCorrect ? 0.5 : 0) + (readingCorrect ? 0.5 : 0);
+          ? (translationCorrect ? 1 : 0)
+          : (translationCorrect ? 1 : 0) + (readingCorrect ? 1 : 0);
 
         const cardCorrect = isInitialTry && translationCorrect && readingCorrect;
 
@@ -573,7 +573,7 @@ export function useQuizStateMachine(
 
         // Immediately show CARD_COMPLETE and update stats
         setSessionStats((prev) => {
-          const newReviewed = prev.reviewed + 1;
+          const newReviewed = prev.reviewed + (isPhonetic ? 1 : 2);
           const newCorrect = prev.correct + pointsGained;
           const newStreak = cardCorrect ? prev.currentStreak + 1 : 0;
           const newLongest = Math.max(prev.longestStreak, newStreak);
