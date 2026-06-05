@@ -230,18 +230,18 @@ describe("getTodayReviewStats", () => {
     mockDb.reviewLog.count.mockResolvedValueOnce(2); // newCardsStudied
 
     mockDb.reviewLog.findMany.mockResolvedValue([
-      { translationCorrect: true, readingCorrect: true }, // 2 lookedAt, 2 correct
-      { translationCorrect: true, readingCorrect: false }, // 2 lookedAt, 1 correct
-      { translationCorrect: false, readingCorrect: true }, // 2 lookedAt, 1 correct
-      { translationCorrect: true, readingCorrect: null }, // 1 lookedAt, 1 correct
+      { translationCorrect: true, readingCorrect: true }, // 1 reviewed, 1.0 correct
+      { translationCorrect: true, readingCorrect: false }, // 1 reviewed, 0.5 correct
+      { translationCorrect: false, readingCorrect: true }, // 1 reviewed, 0.5 correct
+      { translationCorrect: true, readingCorrect: null }, // 1 reviewed, 1.0 correct
     ]);
 
     const result = await getTodayReviewStats("user-1");
 
-    expect(result.reviewedToday).toBe(7);
-    expect(result.correctToday).toBe(5);
+    expect(result.reviewedToday).toBe(4);
+    expect(result.correctToday).toBe(3.0);
     expect(result.newCardsStudied).toBe(2);
-    expect(result.accuracy).toBe(5 / 7);
+    expect(result.accuracy).toBe(0.75);
   });
 
   it("returns zeros when no reviews today", async () => {

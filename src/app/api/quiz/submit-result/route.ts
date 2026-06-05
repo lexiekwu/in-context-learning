@@ -138,12 +138,12 @@ export async function POST(request: NextRequest) {
         where: { id: sessionId },
         data: {
           cardsReviewed: {
-            increment: effectiveReadingCorrect !== null ? 2 : 1,
+            increment: 1,
           },
           cardsCorrect: {
             increment:
               effectiveReadingCorrect !== null
-                ? (translationCorrect ? 1.0 : 0) + (effectiveReadingCorrect ? 1.0 : 0)
+                ? (translationCorrect ? 0.5 : 0) + (effectiveReadingCorrect ? 0.5 : 0)
                 : (translationCorrect ? 1.0 : 0),
           },
         },

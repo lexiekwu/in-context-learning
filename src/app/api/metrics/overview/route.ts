@@ -65,8 +65,11 @@ export async function GET() {
     let totalLookedAt = 0;
     let totalCorrect = 0;
     for (const r of recentReviews) {
-      totalLookedAt += r.readingCorrect !== null ? 2 : 1;
-      totalCorrect += (r.translationCorrect ? 1 : 0) + (r.readingCorrect ? 1 : 0);
+      totalLookedAt += 1;
+      totalCorrect +=
+        r.readingCorrect !== null
+          ? (r.translationCorrect ? 0.5 : 0) + (r.readingCorrect ? 0.5 : 0)
+          : (r.translationCorrect ? 1.0 : 0);
     }
 
     const last7DaysAccuracy =

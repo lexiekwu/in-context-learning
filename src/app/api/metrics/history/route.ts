@@ -138,8 +138,11 @@ export async function GET(request: NextRequest) {
         correct: 0,
         newCards: 0,
       };
-      const lookedAt = log.readingCorrect !== null ? 2 : 1;
-      const correct = (log.translationCorrect ? 1 : 0) + (log.readingCorrect ? 1 : 0);
+      const lookedAt = 1;
+      const correct =
+        log.readingCorrect !== null
+          ? (log.translationCorrect ? 0.5 : 0) + (log.readingCorrect ? 0.5 : 0)
+          : (log.translationCorrect ? 1.0 : 0);
 
       entry.total += lookedAt;
       entry.correct += correct;

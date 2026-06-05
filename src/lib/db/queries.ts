@@ -193,15 +193,14 @@ export async function getTodayReviewStats(
     db.reviewLog.count({ where: { ...baseWhere, priorState: "NEW" } }),
   ]);
 
-  const reviewedToday = logs.reduce((acc, log) => {
-    return acc + (log.readingCorrect !== null ? 2 : 1);
-  }, 0);
+  const reviewedToday = logs.length;
 
   const correctToday = logs.reduce((acc, log) => {
     return (
       acc +
-      (log.translationCorrect ? 1 : 0) +
-      (log.readingCorrect ? 1 : 0)
+      (log.readingCorrect !== null
+        ? (log.translationCorrect ? 0.5 : 0) + (log.readingCorrect ? 0.5 : 0)
+        : (log.translationCorrect ? 1.0 : 0))
     );
   }, 0);
 

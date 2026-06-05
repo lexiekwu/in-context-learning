@@ -436,7 +436,7 @@ export function useQuizStateMachine(
       if (matched) {
         if (isPhonetic) {
           // Phonetic languages skip the reading step entirely
-          submitCardResult(true, true, false);
+          submitCardResult(false, true, false);
         } else {
           setState("READING_INPUT");
         }
@@ -540,7 +540,7 @@ export function useQuizStateMachine(
       const expectedNorm = normalize(card.readingResult.expectedPinyin);
       if (userNorm === expectedNorm) {
         const translationCorrect = card.translationResult?.correct ?? false;
-        submitCardResult(translationCorrect, true, false);
+        submitCardResult(translationCorrect, false, false);
         return true;
       }
       return false;
@@ -563,8 +563,8 @@ export function useQuizStateMachine(
         // Points logic for accuracy stats: 1 point for translation, 1 point for pinyin
         // Rating logic for SRS: GOOD only if both correct on first try
         const pointsGained = isPhonetic
-          ? (translationCorrect ? 1 : 0)
-          : (translationCorrect ? 1 : 0) + (readingCorrect ? 1 : 0);
+          ? (translationCorrect ? 1.0 : 0)
+          : (translationCorrect ? 0.5 : 0) + (readingCorrect ? 0.5 : 0);
 
         const cardCorrect = isInitialTry && translationCorrect && readingCorrect;
 
@@ -573,7 +573,7 @@ export function useQuizStateMachine(
 
         // Immediately show CARD_COMPLETE and update stats
         setSessionStats((prev) => {
-          const newReviewed = prev.reviewed + (isPhonetic ? 1 : 2);
+          const newReviewed = prev.reviewed + 1;
           const newCorrect = prev.correct + pointsGained;
           const newStreak = cardCorrect ? prev.currentStreak + 1 : 0;
           const newLongest = Math.max(prev.longestStreak, newStreak);
@@ -595,8 +595,10 @@ export function useQuizStateMachine(
           userTranslation: currentCard.userTranslation || "no translation",
           correctTranslation: currentCard.sentence.translation,
           translationCorrect,
-          userPinyin: currentCard.userReading || (isPhonetic ? "n/a" : "unknown"),
-          pinyinCorrect: readingCorrect,
+          userReading: isPhonetic ? undefined : (currentCard.userReading || "unknown"),
+          readingCorrect: isPhonetic ? undefined : readingCorrect,
+          userPinyin: isPhonetic ? undefined : (currentCard.userReading || "unknown"),
+          pinyinCorrect: isPhonetic ? undefined : readingCorrect,
           responseTimeMs,
         }).then((result) => {
           const apiResult = result as unknown as {
