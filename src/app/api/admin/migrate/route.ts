@@ -26,9 +26,17 @@ export async function GET() {
       'ALTER TABLE "StudySession" ALTER COLUMN "cardsCorrect" SET DATA TYPE DOUBLE PRECISION;'
     );
 
+    await db.$executeRawUnsafe(
+      'DROP INDEX IF EXISTS "Flashcard_userId_language_due_idx";'
+    );
+
+    await db.$executeRawUnsafe(
+      'CREATE INDEX IF NOT EXISTS "Flashcard_userId_language_state_due_idx" ON "Flashcard"("userId", "language", "state", "due");'
+    );
+
     return NextResponse.json({
       success: true,
-      message: "Database migrated successfully! 'cardsCorrect' column altered to DOUBLE PRECISION (Float).",
+      message: "Database migrated successfully! Index 'Flashcard_userId_language_state_due_idx' created.",
     });
   } catch (error: any) {
     console.error("[admin/migrate] SQL migration failed:", error);

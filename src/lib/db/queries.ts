@@ -268,21 +268,20 @@ export async function computeStreak(userId: string): Promise<number> {
   const yearAgo = new Date(todayStart);
   yearAgo.setUTCDate(yearAgo.getUTCDate() - 365);
 
-  const reviews = await db.reviewLog.findMany({
-    where: {
-      userId,
-      reviewedAt: { gte: yearAgo },
-    },
-    select: { reviewedAt: true },
-    orderBy: { reviewedAt: "desc" },
-  });
+  const reviews = await db.$queryRaw<Array<{ reviewed_date: string | Date }>>`
+    SELECT DISTINCT DATE_TRUNC('day', "reviewedAt") AS reviewed_date
+    FROM "ReviewLog"
+    WHERE "userId" = ${userId}::uuid
+      AND "reviewedAt" >= ${yearAgo}
+    ORDER BY reviewed_date DESC
+  `;
 
   if (reviews.length === 0) return 0;
 
   // Collect unique dates as YYYY-MM-DD strings
   const uniqueDates = new Set<string>();
   for (const r of reviews) {
-    const d = r.reviewedAt;
+    const d = new Date(r.reviewed_date);
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
     uniqueDates.add(key);
   }

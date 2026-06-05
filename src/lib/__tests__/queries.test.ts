@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({
   db: {
+    $queryRaw: vi.fn(),
     flashcard: {
       findMany: vi.fn(),
       count: vi.fn(),
@@ -35,6 +36,7 @@ import {
 
 // Cast to access mock methods
 const mockDb = db as unknown as {
+  $queryRaw: ReturnType<typeof vi.fn>;
   flashcard: {
     findMany: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
@@ -129,7 +131,7 @@ describe("countNewCardsReviewedToday", () => {
 
 describe("computeStreak", () => {
   it("returns 0 when no review data", async () => {
-    mockDb.reviewLog.findMany.mockResolvedValue([]);
+    mockDb.$queryRaw.mockResolvedValue([]);
 
     const result = await computeStreak("user-1");
 
@@ -143,10 +145,10 @@ describe("computeStreak", () => {
     const twoDaysAgo = new Date(today);
     twoDaysAgo.setUTCDate(twoDaysAgo.getUTCDate() - 2);
 
-    mockDb.reviewLog.findMany.mockResolvedValue([
-      { reviewedAt: today },
-      { reviewedAt: yesterday },
-      { reviewedAt: twoDaysAgo },
+    mockDb.$queryRaw.mockResolvedValue([
+      { reviewed_date: today },
+      { reviewed_date: yesterday },
+      { reviewed_date: twoDaysAgo },
     ]);
 
     const result = await computeStreak("user-1");
@@ -162,9 +164,9 @@ describe("computeStreak", () => {
     twoDaysAgo.setUTCDate(twoDaysAgo.getUTCDate() - 2);
 
     // No review today, but yesterday and day before
-    mockDb.reviewLog.findMany.mockResolvedValue([
-      { reviewedAt: yesterday },
-      { reviewedAt: twoDaysAgo },
+    mockDb.$queryRaw.mockResolvedValue([
+      { reviewed_date: yesterday },
+      { reviewed_date: twoDaysAgo },
     ]);
 
     const result = await computeStreak("user-1");
@@ -177,8 +179,8 @@ describe("computeStreak", () => {
     const threeDaysAgo = new Date(today);
     threeDaysAgo.setUTCDate(threeDaysAgo.getUTCDate() - 3);
 
-    mockDb.reviewLog.findMany.mockResolvedValue([
-      { reviewedAt: threeDaysAgo },
+    mockDb.$queryRaw.mockResolvedValue([
+      { reviewed_date: threeDaysAgo },
     ]);
 
     const result = await computeStreak("user-1");
@@ -194,10 +196,10 @@ describe("computeStreak", () => {
     const threeDaysAgo = new Date(today);
     threeDaysAgo.setUTCDate(threeDaysAgo.getUTCDate() - 3);
 
-    mockDb.reviewLog.findMany.mockResolvedValue([
-      { reviewedAt: today },
-      { reviewedAt: yesterday },
-      { reviewedAt: threeDaysAgo }, // gap: 2 days ago is missing
+    mockDb.$queryRaw.mockResolvedValue([
+      { reviewed_date: today },
+      { reviewed_date: yesterday },
+      { reviewed_date: threeDaysAgo }, // gap: 2 days ago is missing
     ]);
 
     const result = await computeStreak("user-1");
@@ -208,10 +210,8 @@ describe("computeStreak", () => {
   it("handles multiple reviews on the same day (deduplicates)", async () => {
     const today = new Date();
 
-    mockDb.reviewLog.findMany.mockResolvedValue([
-      { reviewedAt: new Date(today) },
-      { reviewedAt: new Date(today) },
-      { reviewedAt: new Date(today) },
+    mockDb.$queryRaw.mockResolvedValue([
+      { reviewed_date: today },
     ]);
 
     const result = await computeStreak("user-1");

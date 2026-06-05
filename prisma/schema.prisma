@@ -80,7 +80,7 @@ model Flashcard {
   reviewLogs ReviewLog[]
 
   @@unique([userId, word, language])
-  @@index([userId, language, due])
+  @@index([userId, language, state, due])
 }
 
 model ReviewLog {
