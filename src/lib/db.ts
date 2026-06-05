@@ -1,5 +1,6 @@
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { env } from "@/lib/env";
 
 const globalForPrisma = globalThis as unknown as {
@@ -7,7 +8,11 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
+  const pool = new Pool({
+    connectionString: env.DATABASE_URL,
+    max: 1, // Explicitly match the connection limit of 1 for PgBouncer
+  });
+  const adapter = new PrismaPg(pool);
   return new PrismaClient({
     adapter,
     log:

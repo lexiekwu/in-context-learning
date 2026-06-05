@@ -134,7 +134,8 @@ export async function getNextDueCard(
     const remaining = await countRemainingCards(
       userId,
       sessionCardIds,
-      newCardsRemaining
+      newCardsRemaining,
+      language
     );
     return {
       card: selectedCard,
@@ -331,11 +332,13 @@ export async function computeStreak(userId: string): Promise<number> {
 /**
  * Count cards currently due for the user.
  */
-export async function countDueCards(userId: string): Promise<number> {
+export async function countDueCards(userId: string, language?: string): Promise<number> {
   const now = new Date();
+  const langFilter = language ? { language } : {};
   return db.flashcard.count({
     where: {
       userId,
+      ...langFilter,
       due: { lte: now },
       state: { not: "NEW" },
     },
@@ -391,14 +394,17 @@ async function countReviewsSinceLastNew(
 async function countRemainingCards(
   userId: string,
   excludeIds: string[],
-  newCardsRemaining: number
+  newCardsRemaining: number,
+  language?: string
 ): Promise<number> {
   const now = new Date();
+  const langFilter = language ? { language } : {};
 
   const [dueCount, newAvailable] = await Promise.all([
     db.flashcard.count({
       where: {
         userId,
+        ...langFilter,
         due: { lte: now },
         state: { not: "NEW" },
         id: { notIn: excludeIds },
@@ -407,6 +413,7 @@ async function countRemainingCards(
     db.flashcard.count({
       where: {
         userId,
+        ...langFilter,
         state: "NEW",
         id: { notIn: excludeIds },
       },

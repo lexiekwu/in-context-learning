@@ -86,6 +86,7 @@ const limiters: Record<Tier, Ratelimit | null> = Object.fromEntries(
           redis,
           limiter: Ratelimit.slidingWindow(requests, window),
           prefix: `icl:${key}`,
+          timeout: 1000, // Fail open if Redis takes > 1s
         })
       : null,
   ]),

@@ -104,11 +104,27 @@ export default function QuizPage() {
     return (
       <div className="flex flex-1 flex-col">
         <QuizStatsBar dailyStats={quiz.dailyStats} />
-        <div className="flex flex-1 items-center justify-center px-4">
-          <LoadingSkeleton
-            message="Generating sentence..."
-            showSlowWarning
-          />
+        <div className="flex flex-1 flex-col items-center justify-center px-4">
+          {quiz.error ? (
+            <div className="w-full max-w-md text-center">
+              <div className="rounded-xl border border-red-800 bg-red-900/20 p-6">
+                <p className="text-base text-red-200 mb-4">
+                  {quiz.error}
+                </p>
+                <button
+                  onClick={() => quiz.loadNextCard()}
+                  className="inline-flex min-h-11 items-center rounded-lg bg-indigo-600 px-8 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-500 cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : (
+            <LoadingSkeleton
+              message="Generating sentence..."
+              showSlowWarning
+            />
+          )}
         </div>
       </div>
     );

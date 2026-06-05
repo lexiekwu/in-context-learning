@@ -30,15 +30,23 @@ export async function GET() {
     const limited = await checkRateLimit("quiz", userId);
     if (limited) return limited;
 
+    // Get user's active language
+    const user = await db.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { targetLanguage: true },
+    });
+    const activeLang = user?.targetLanguage ?? "zh";
+
     // Run queries in parallel
     const [todayStats, streak, dueToday, nextDueCard] = await Promise.all([
       getTodayReviewStats(userId),
       computeStreak(userId),
-      countDueCards(userId),
+      countDueCards(userId, activeLang),
       // Find the earliest upcoming due card (for cards not yet due)
       db.flashcard.findFirst({
         where: {
           userId,
+          language: activeLang,
           due: { gt: new Date() },
           state: { not: "NEW" },
         },

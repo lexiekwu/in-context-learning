@@ -71,6 +71,19 @@ export async function POST(request: NextRequest) {
       throw notFoundError("Flashcard", flashcardId);
     }
 
+    // Get language settings from user profile
+    const user = await db.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { targetLanguage: true, languageVariant: true },
+    });
+
+    const langCode = user.targetLanguage ?? "zh";
+    const langConfig = getLanguageConfig(langCode);
+    const characterSet = getCharacterSet(langCode, user.languageVariant) ?? "traditional";
+
+    // Pick the right response schema based on language type
+    const responseSchema = createSentenceGenerationSchema(langCode);
+
     // Check for same-day cached sentence in ReviewLog
     const todayStart = startOfToday();
     const cachedLog = await db.reviewLog.findFirst({
@@ -86,7 +99,7 @@ export async function POST(request: NextRequest) {
     if (cachedLog?.sentenceResponseJson) {
       try {
         const cached = JSON.parse(cachedLog.sentenceResponseJson);
-        const validated = SentenceGenerationResponseSchema.safeParse(cached);
+        const validated = responseSchema.safeParse(cached);
         if (validated.success) {
           return NextResponse.json(validated.data);
         }
@@ -94,19 +107,6 @@ export async function POST(request: NextRequest) {
         // Cache parse failed — regenerate below
       }
     }
-
-    // Get language settings from user profile
-    const user = await db.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { targetLanguage: true, languageVariant: true },
-    });
-
-    const langCode = user.targetLanguage ?? "zh";
-    const langConfig = getLanguageConfig(langCode);
-    const characterSet = getCharacterSet(langCode, user.languageVariant) ?? "traditional";
-
-    // Pick the right response schema based on language type
-    const responseSchema = createSentenceGenerationSchema(langCode);
 
     // Dev fallback: if GEMINI_API_KEY is not configured or is a placeholder, return mock data
     const geminiKey = process.env.GEMINI_API_KEY;

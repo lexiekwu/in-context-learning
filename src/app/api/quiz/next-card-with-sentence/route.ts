@@ -10,8 +10,11 @@ import {
 } from "@/lib/errors";
 import { getNextDueCard } from "@/lib/db/queries";
 import { callLLM } from "@/lib/llm/call";
-import { SentenceGenerationResponseSchema } from "@/lib/llm/schemas";
-import type { SentenceGenerationResponse } from "@/lib/llm/schemas";
+import {
+  SentenceGenerationResponseSchema,
+  createSentenceGenerationSchema,
+} from "@/lib/llm/schemas";
+import type { GenerateSentenceResponse } from "@/types";
 import {
   sentenceGenerationSystemMessage,
   sentenceGenerationUserMessage,
@@ -110,12 +113,15 @@ export async function GET(request: NextRequest) {
       orderBy: { reviewedAt: "desc" },
     });
 
-    let sentence: SentenceGenerationResponse | null = null;
+    // Pick the right response schema based on language type
+    const responseSchema = createSentenceGenerationSchema(activeLang);
+
+    let sentence: GenerateSentenceResponse | null = null;
 
     if (cachedLog?.sentenceResponseJson) {
       try {
         const cached = JSON.parse(cachedLog.sentenceResponseJson);
-        const validated = SentenceGenerationResponseSchema.safeParse(cached);
+        const validated = responseSchema.safeParse(cached);
         if (validated.success) {
           sentence = validated.data;
         }
@@ -160,20 +166,22 @@ export async function GET(request: NextRequest) {
         for (let i = 0; i < flashcard.id.length; i++) {
           hash = (hash * 31 + flashcard.id.charCodeAt(i)) | 0;
         }
+        const tpl = templates[Math.abs(hash) % templates.length];
         sentence = {
-          ...templates[Math.abs(hash) % templates.length],
-          sentenceWithHighlight: "",
+          ...tpl,
+          sentenceWithHighlight: tpl.sentence.replace(word, `<mark>${word}</mark>`),
         };
       } else {
         sentence = await callLLM({
-          systemMessage: sentenceGenerationSystemMessage(characterSet),
+          systemMessage: sentenceGenerationSystemMessage(activeLang, userRecord?.languageVariant ?? undefined),
           userMessage: sentenceGenerationUserMessage({
             targetWord: sanitizeForPrompt(flashcard.word),
             pinyin: sanitizeForPrompt(flashcard.reading ?? ""),
             meaning: sanitizeForPrompt(flashcard.englishMeaning),
             characterSet,
+            language: activeLang,
           }),
-          schema: SentenceGenerationResponseSchema,
+          schema: responseSchema,
           temperature: 0.9,
           maxTokens: 2000,
           purpose: "generate-sentence",

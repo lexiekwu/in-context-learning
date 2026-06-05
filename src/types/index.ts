@@ -126,6 +126,7 @@ export interface WordBreakdownEntry {
 /** POST /api/quiz/generate-sentence response */
 export interface GenerateSentenceResponse {
   sentence: string;
+  sentenceWithHighlight: string;
   translation: string;
   wordBreakdown: WordBreakdownEntry[];
 }
