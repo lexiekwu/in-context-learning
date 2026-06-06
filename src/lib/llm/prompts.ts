@@ -67,7 +67,7 @@ export function sentenceGenerationSystemMessage(
   }
 
   lines.push(
-    `${ruleNum}. Generate exactly ONE sentence that uses the target word naturally.`,
+    `${ruleNum}. Generate exactly ONE sentence. If the target word is a standard word, it must use the target word naturally. If the target word is a radical, component, or bound morpheme that cannot be used as a standalone word in natural speech, you MUST instead generate a sentence that describes or discusses the character/radical (e.g., explaining its meaning, or showing a common word that contains it), rather than trying to use it as a standalone word.`,
   );
   ruleNum++;
 
@@ -82,7 +82,7 @@ export function sentenceGenerationSystemMessage(
   ruleNum++;
 
   lines.push(
-    `${ruleNum}. Wrap the target word in <mark> tags in the sentenceWithHighlight field.`,
+    `${ruleNum}. Wrap the target word in <mark> tags in the sentenceWithHighlight field. If the target word is a radical/component, wrap the radical/component character in <mark> tags where it appears.`,
   );
   ruleNum++;
 
