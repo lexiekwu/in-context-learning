@@ -341,19 +341,21 @@ export default function QuizPage() {
 
 function QuizStatsBar({ dailyStats }: { dailyStats: DailyStats }) {
   const accuracy =
-    dailyStats.reviewed > 0
-      ? Math.round((dailyStats.correct / dailyStats.reviewed) * 100)
-      : 0;
+    dailyStats.maxPossible > 0
+      ? Math.round((dailyStats.correct / dailyStats.maxPossible) * 100)
+      : dailyStats.reviewed > 0
+        ? Math.round((dailyStats.correct / (dailyStats.reviewed * 4)) * 100)
+        : 0;
 
   return (
     <div className="flex w-full items-center justify-between border-b border-zinc-800 px-4 py-2.5">
       <div className="flex items-center gap-3">
         <span className="text-sm font-medium text-zinc-300">
-          Today: {dailyStats.reviewed}
+          Today: {dailyStats.correct} pts
         </span>
         {dailyStats.reviewed > 0 && (
           <span className="text-xs text-zinc-400">
-            {accuracy}% accuracy
+            ({dailyStats.reviewed} reviewed, {accuracy}% accuracy)
           </span>
         )}
       </div>

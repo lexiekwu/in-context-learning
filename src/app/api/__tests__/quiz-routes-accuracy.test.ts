@@ -74,7 +74,7 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
     });
   });
 
-  it("submits 0.5 points for partial correctness (translation only)", async () => {
+  it("submits 1.0 points when only target word is correct (translation only, no sentenceCorrect)", async () => {
     const body = {
       sessionId: TEST_SESSION_ID,
       flashcardId: TEST_FLASHCARD_ID,
@@ -82,8 +82,9 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
       userTranslation: "Hello",
       correctTranslation: "Hello",
       translationCorrect: true,
+      sentenceCorrect: false,
       userReading: "ni3hao3",
-      readingCorrect: false, // Partial correctness
+      readingCorrect: false,
       overallRating: "AGAIN",
     };
 
@@ -93,26 +94,24 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
     });
 
     const res = await submitResultPost(req as never);
-    const json = await res.json();
-
     expect(res.status).toBe(200);
-    
-    // Check the increment value in the mock call
+
     const sessionUpdateCall = mockDbStudySession.update.mock.calls[0][0];
     expect(sessionUpdateCall.data.cardsReviewed.increment).toBe(1);
-    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(0.5);
+    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(1);
   });
 
-  it("submits 0.5 points for partial correctness (reading only)", async () => {
+  it("submits 2.0 points when sentence translation is correct but reading is incorrect", async () => {
     const body = {
       sessionId: TEST_SESSION_ID,
       flashcardId: TEST_FLASHCARD_ID,
       generatedSentence: "你好",
-      userTranslation: "Hi",
+      userTranslation: "Hello",
       correctTranslation: "Hello",
-      translationCorrect: false,
+      translationCorrect: true,
+      sentenceCorrect: true,
       userReading: "ni3hao3",
-      readingCorrect: true, // Partial correctness
+      readingCorrect: false,
       overallRating: "AGAIN",
     };
 
@@ -122,13 +121,14 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
     });
 
     const res = await submitResultPost(req as never);
-    
+    expect(res.status).toBe(200);
+
     const sessionUpdateCall = mockDbStudySession.update.mock.calls[0][0];
     expect(sessionUpdateCall.data.cardsReviewed.increment).toBe(1);
-    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(0.5);
+    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(2);
   });
 
-  it("submits 0.0 points when both parts are incorrect", async () => {
+  it("submits 2.0 points when translation is incorrect but reading is correct", async () => {
     const body = {
       sessionId: TEST_SESSION_ID,
       flashcardId: TEST_FLASHCARD_ID,
@@ -136,6 +136,33 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
       userTranslation: "Hi",
       correctTranslation: "Hello",
       translationCorrect: false,
+      sentenceCorrect: false,
+      userReading: "ni3hao3",
+      readingCorrect: true,
+      overallRating: "AGAIN",
+    };
+
+    const req = new Request("http://localhost/api/quiz/submit-result", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    const res = await submitResultPost(req as never);
+
+    const sessionUpdateCall = mockDbStudySession.update.mock.calls[0][0];
+    expect(sessionUpdateCall.data.cardsReviewed.increment).toBe(1);
+    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(2);
+  });
+
+  it("submits 0.0 points when both translation and reading are incorrect", async () => {
+    const body = {
+      sessionId: TEST_SESSION_ID,
+      flashcardId: TEST_FLASHCARD_ID,
+      generatedSentence: "你好",
+      userTranslation: "Hi",
+      correctTranslation: "Hello",
+      translationCorrect: false,
+      sentenceCorrect: false,
       userReading: "ni2hao3",
       readingCorrect: false,
       overallRating: "AGAIN",
@@ -147,13 +174,13 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
     });
 
     const res = await submitResultPost(req as never);
-    
+
     const sessionUpdateCall = mockDbStudySession.update.mock.calls[0][0];
     expect(sessionUpdateCall.data.cardsReviewed.increment).toBe(1);
     expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(0.0);
   });
 
-  it("submits 1.0 points when both parts are correct", async () => {
+  it("submits 4.0 points when full translated sentence and reading are correct", async () => {
     const body = {
       sessionId: TEST_SESSION_ID,
       flashcardId: TEST_FLASHCARD_ID,
@@ -161,6 +188,7 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
       userTranslation: "Hello",
       correctTranslation: "Hello",
       translationCorrect: true,
+      sentenceCorrect: true,
       userReading: "ni3hao3",
       readingCorrect: true,
       overallRating: "GOOD",
@@ -172,10 +200,10 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
     });
 
     const res = await submitResultPost(req as never);
-    
+
     const sessionUpdateCall = mockDbStudySession.update.mock.calls[0][0];
     expect(sessionUpdateCall.data.cardsReviewed.increment).toBe(1);
-    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(1.0);
+    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(4);
   });
 });
 

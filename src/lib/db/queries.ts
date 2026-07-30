@@ -174,6 +174,7 @@ export interface TodayReviewStats {
   correctToday: number;
   newCardsStudied: number;
   accuracy: number;
+  maxPossibleToday: number;
 }
 
 /**
@@ -189,7 +190,11 @@ export async function getTodayReviewStats(
   const [logs, newCardsStudied] = await Promise.all([
     db.reviewLog.findMany({
       where: baseWhere,
-      select: { translationCorrect: true, readingCorrect: true },
+      select: {
+        translationCorrect: true,
+        sentenceCorrect: true,
+        readingCorrect: true,
+      },
     }),
     db.reviewLog.count({ where: { ...baseWhere, priorState: "NEW" } }),
   ]);
@@ -197,17 +202,20 @@ export async function getTodayReviewStats(
   const reviewedToday = logs.length;
 
   const correctToday = logs.reduce((acc, log) => {
-    return (
-      acc +
-      (log.readingCorrect !== null
-        ? (log.translationCorrect ? 0.5 : 0) + (log.readingCorrect ? 0.5 : 0)
-        : (log.translationCorrect ? 1.0 : 0))
-    );
+    const translationPts = log.translationCorrect
+      ? (log.sentenceCorrect ? 2 : 1)
+      : 0;
+    const readingPts = log.readingCorrect ? 2 : 0;
+    return acc + translationPts + readingPts;
   }, 0);
 
-  const accuracy = reviewedToday > 0 ? correctToday / reviewedToday : 0;
+  const maxPossibleToday = logs.reduce((acc, log) => {
+    return acc + (log.readingCorrect !== null ? 4 : 2);
+  }, 0);
 
-  return { reviewedToday, correctToday, newCardsStudied, accuracy };
+  const accuracy = maxPossibleToday > 0 ? correctToday / maxPossibleToday : 0;
+
+  return { reviewedToday, correctToday, newCardsStudied, accuracy, maxPossibleToday };
 }
 
 // ---------------------------------------------------------------------------

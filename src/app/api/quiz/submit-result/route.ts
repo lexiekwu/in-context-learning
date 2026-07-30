@@ -18,6 +18,7 @@ const requestSchema = z.object({
   userTranslation: z.string().min(1, "userTranslation is required"),
   correctTranslation: z.string().min(1, "correctTranslation is required"),
   translationCorrect: z.boolean(),
+  sentenceCorrect: z.boolean().optional().default(false),
   // Reading fields are optional — absent for phonetic languages
   userReading: z.string().optional().nullable(),
   readingCorrect: z.boolean().optional().nullable(),
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
       userTranslation,
       correctTranslation,
       translationCorrect,
+      sentenceCorrect,
       userReading,
       readingCorrect,
       userPinyin,
@@ -78,6 +80,15 @@ export async function POST(request: NextRequest) {
     // Resolve reading fields: prefer new names, fall back to legacy pinyin names
     const effectiveUserReading = userReading ?? userPinyin ?? null;
     const effectiveReadingCorrect = readingCorrect ?? pinyinCorrect ?? null;
+
+    const translationPoints = translationCorrect
+      ? (sentenceCorrect ? 2 : 1)
+      : 0;
+    const readingPoints =
+      effectiveReadingCorrect !== null
+        ? (effectiveReadingCorrect ? 2 : 0)
+        : 0;
+    const pointsGained = translationPoints + readingPoints;
 
     // Verify the session belongs to this user
     const studySession = await db.studySession.findUnique({
@@ -125,6 +136,7 @@ export async function POST(request: NextRequest) {
           userTranslation,
           correctTranslation,
           translationCorrect,
+          sentenceCorrect: Boolean(sentenceCorrect),
           userReading: effectiveUserReading,
           readingCorrect: effectiveReadingCorrect,
           overallRating,
@@ -141,10 +153,7 @@ export async function POST(request: NextRequest) {
             increment: 1,
           },
           cardsCorrect: {
-            increment:
-              effectiveReadingCorrect !== null
-                ? (translationCorrect ? 0.5 : 0) + (effectiveReadingCorrect ? 0.5 : 0)
-                : (translationCorrect ? 1.0 : 0),
+            increment: pointsGained,
           },
         },
       }),

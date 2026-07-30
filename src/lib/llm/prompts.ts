@@ -77,7 +77,7 @@ export function sentenceGenerationSystemMessage(
   ruleNum++;
 
   lines.push(
-    `${ruleNum}. Match the sentence complexity to the target word itself. If the word is basic, use a simple sentence. If the word is advanced, use a more sophisticated sentence with appropriate context. The rest of the vocabulary in the sentence should be simpler than the target word.`,
+    `${ruleNum}. Seek relatively short (<15 words), simple sentences. Discourage compound sentences — only use a compound sentence if it's necessary to represent the target word well. The rest of the vocabulary in the sentence should be simpler than the target word.`,
   );
   ruleNum++;
 
@@ -182,9 +182,9 @@ Grading rules:
 5. Minor grammatical errors in the English are acceptable if the meaning is clear.
 6. If the translation is partially correct (gets the gist but misses the target word's nuance), mark it incorrect but give an encouraging explanation.
 
-Set "correct" to true only if:
-- The overall sentence meaning is preserved (doesn't need to be word-for-word)
-- The target word's meaning is correctly reflected in the translation
+Set "sentenceCorrect" to true only if the overall sentence meaning is accurately preserved.
+Set "targetWordCorrect" (and "targetWordUsedCorrectly") to true if the target word's meaning is correctly reflected in the translation.
+Set "correct" to true whenever "targetWordCorrect" is true (or "sentenceCorrect" is true).
 
 Always provide a "suggestedTranslation" — this should be the most natural, accurate English rendering of the ${lang.name} sentence.
 
@@ -229,6 +229,8 @@ Target word meaning: ${params.targetMeaning}
 Respond with JSON in this exact format:
 {
   "correct": <true or false>,
+  "sentenceCorrect": <true or false>,
+  "targetWordCorrect": <true or false>,
   "explanation": "<brief, encouraging explanation of why the translation is correct or incorrect>",
   "targetWordUsedCorrectly": <true or false>,
   "suggestedTranslation": "<your best natural English translation>"

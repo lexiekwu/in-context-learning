@@ -21,15 +21,17 @@ import { requestLogger } from "@/lib/logger";
 function buildSystemMessage(languageName: string): string {
   return `You are grading a ${languageName} learner's English translation of a ${languageName} sentence.
 
-Your ONLY job: decide if the student understood the meaning of the **target word** based on their translation.
+You must evaluate two things:
+1. "sentenceCorrect": true if the student's translation accurately conveys the overall meaning of the full sentence (be lenient on grammar, style, and phrasing, but the full sentence meaning must be preserved).
+2. "targetWordCorrect": true if the student's translation shows they understood the meaning of the **target word** in context (even if the rest of the sentence is incomplete or incorrect). Synonyms and paraphrasing of the target word are fine.
 
-Rules:
-- Be LENIENT on grammar, style, word order, and phrasing of the overall sentence.
-- Be STRICT on the target word. The student's translation must show they understood what the target word means in context. Synonyms and paraphrasing of the target word are fine.
-- If the target word's meaning is completely absent or wrong in the translation, mark incorrect.
+Note:
+- If "sentenceCorrect" is true, "targetWordCorrect" must also be true.
+- If only the target word is correct but the overall sentence translation is wrong or incomplete, set "sentenceCorrect": false and "targetWordCorrect": true.
+- If the target word's meaning is absent or wrong, set "targetWordCorrect": false and "sentenceCorrect": false.
+- Set "correct" to true whenever "targetWordCorrect" is true (or "sentenceCorrect" is true).
 
-Respond with JSON: {"correct": true} or {"correct": false}
-Nothing else.`;
+Respond with JSON: {"correct": boolean, "sentenceCorrect": boolean, "targetWordCorrect": boolean}`;
 }
 
 function buildUserMessage(params: {
@@ -47,7 +49,7 @@ Student's translation: ${params.userTranslation}
 Target word: ${params.targetWord}
 Target word meaning: ${params.targetMeaning}
 
-Is the target word's meaning reflected in the student's translation? {"correct": true or false}`;
+Evaluate the student's translation. Return JSON: {"correct": true/false, "sentenceCorrect": true/false, "targetWordCorrect": true/false}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,6 +58,8 @@ Is the target word's meaning reflected in the student's translation? {"correct":
 
 const ResponseSchema = z.object({
   correct: z.boolean(),
+  sentenceCorrect: z.boolean().optional().default(false),
+  targetWordCorrect: z.boolean().optional().default(false),
 });
 
 // ---------------------------------------------------------------------------
@@ -139,7 +143,15 @@ export async function POST(request: NextRequest) {
       log.warn({ llmMs, totalMs, flashcardId }, "Slow check-translation response");
     }
 
-    return NextResponse.json({ correct: result.correct });
+    const correct = Boolean(result.correct || result.targetWordCorrect || result.sentenceCorrect);
+    const sentenceCorrect = Boolean(result.sentenceCorrect);
+    const targetWordCorrect = Boolean(result.targetWordCorrect || correct);
+
+    return NextResponse.json({
+      correct,
+      sentenceCorrect,
+      targetWordCorrect,
+    });
   } catch (error) {
     return errorResponse(error);
   }

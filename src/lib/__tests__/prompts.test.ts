@@ -38,6 +38,12 @@ describe("sentenceGenerationSystemMessage", () => {
     expect(msg).toContain("繁體字");
     expect(msg).toContain("ni3hao3");
   });
+
+  it("instructs relatively short <15 words simple sentences and discourages compound sentences", () => {
+    const msg = sentenceGenerationSystemMessage("zh");
+    expect(msg).toContain("<15 words");
+    expect(msg).toContain("Discourage compound sentences");
+  });
 });
 
 describe("sentenceGenerationUserMessage", () => {

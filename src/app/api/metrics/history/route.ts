@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
         select: {
           reviewedAt: true,
           translationCorrect: true,
+          sentenceCorrect: true,
           readingCorrect: true,
           priorState: true,
         },
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
     // Group review logs by date
     const reviewsByDate = new Map<
       string,
-      { total: number; correct: number; newCards: number }
+      { total: number; correct: number; maxPossible: number; newCards: number }
     >();
 
     for (const log of reviewLogs) {
@@ -136,16 +137,20 @@ export async function GET(request: NextRequest) {
       const entry = reviewsByDate.get(dateKey) ?? {
         total: 0,
         correct: 0,
+        maxPossible: 0,
         newCards: 0,
       };
       const lookedAt = 1;
-      const correct =
-        log.readingCorrect !== null
-          ? (log.translationCorrect ? 0.5 : 0) + (log.readingCorrect ? 0.5 : 0)
-          : (log.translationCorrect ? 1.0 : 0);
+      const translationPts = log.translationCorrect
+        ? (log.sentenceCorrect ? 2 : 1)
+        : 0;
+      const readingPts = log.readingCorrect ? 2 : 0;
+      const correct = translationPts + readingPts;
+      const maxPts = log.readingCorrect !== null ? 4 : 2;
 
       entry.total += lookedAt;
       entry.correct += correct;
+      entry.maxPossible += maxPts;
       if (log.priorState === "NEW") {
         entry.newCards++;
       }
@@ -178,8 +183,8 @@ export async function GET(request: NextRequest) {
         cardsReviewed: reviews?.total ?? 0,
         cardsCorrect: reviews?.correct ?? 0,
         accuracy:
-          reviews && reviews.total > 0
-            ? Math.round((reviews.correct / reviews.total) * 1000) / 10
+          reviews && reviews.maxPossible > 0
+            ? Math.round((reviews.correct / reviews.maxPossible) * 1000) / 10
             : 0,
         newCardsStudied: reviews?.newCards ?? 0,
         timeSpentMinutes: Math.round(timeSpent * 10) / 10,

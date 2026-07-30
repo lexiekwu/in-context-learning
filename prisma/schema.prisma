@@ -94,6 +94,7 @@ model ReviewLog {
   userTranslation      String
   correctTranslation   String
   translationCorrect   Boolean
+  sentenceCorrect      Boolean   @default(false)
   userReading          String?
   readingCorrect       Boolean?
   overallRating        Rating

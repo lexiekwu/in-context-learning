@@ -143,6 +143,8 @@ export interface NextCardWithSentenceResponse {
 /** POST /api/quiz/check-translation response */
 export interface CheckTranslationResponse {
   correct: boolean;
+  sentenceCorrect?: boolean;
+  targetWordCorrect?: boolean;
 }
 
 /** POST /api/quiz/check-reading response */
@@ -168,6 +170,7 @@ export interface SubmitResultInput {
   userTranslation: string;
   correctTranslation: string;
   translationCorrect: boolean;
+  sentenceCorrect?: boolean;
   /** Reading input (pinyin, romaji, etc.) — optional for phonetic languages */
   userReading?: string | null;
   /** Whether the reading was correct — optional for phonetic languages */
@@ -190,6 +193,7 @@ export interface TodayStatsResponse {
   reviewedToday: number;
   newToday: number;
   correctToday: number;
+  maxPossibleToday?: number;
   streak: number;
   accuracy: number;
   nextDueAt: string | null;

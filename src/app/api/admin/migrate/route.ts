@@ -34,9 +34,13 @@ export async function GET() {
       'CREATE INDEX IF NOT EXISTS "Flashcard_userId_language_state_due_idx" ON "Flashcard"("userId", "language", "state", "due");'
     );
 
+    await db.$executeRawUnsafe(
+      'ALTER TABLE "ReviewLog" ADD COLUMN IF NOT EXISTS "sentenceCorrect" BOOLEAN NOT NULL DEFAULT false;'
+    );
+
     return NextResponse.json({
       success: true,
-      message: "Database migrated successfully! Index 'Flashcard_userId_language_state_due_idx' created.",
+      message: "Database migrated successfully! Index 'Flashcard_userId_language_state_due_idx' and column 'ReviewLog.sentenceCorrect' checked/created.",
     });
   } catch (error: any) {
     console.error("[admin/migrate] SQL migration failed:", error);

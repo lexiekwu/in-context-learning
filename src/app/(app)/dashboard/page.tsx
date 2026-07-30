@@ -373,7 +373,7 @@ function ReviewHistoryChart({
                   <div className="font-medium">{entry.date}</div>
                   <div className="mt-0.5 text-zinc-400">
                     {entry.cardsReviewed} reviewed &middot;{" "}
-                    {entry.cardsCorrect} correct
+                    {entry.cardsCorrect} pts
                   </div>
                   <div className="text-zinc-400">
                     {entry.accuracy}% accuracy &middot;{" "}

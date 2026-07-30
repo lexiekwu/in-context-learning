@@ -9,9 +9,11 @@ interface SessionSummaryProps {
 
 export function SessionSummary({ dailyStats }: SessionSummaryProps) {
   const accuracy =
-    dailyStats.reviewed > 0
-      ? Math.round((dailyStats.correct / dailyStats.reviewed) * 100)
-      : 0;
+    dailyStats.maxPossible > 0
+      ? Math.round((dailyStats.correct / dailyStats.maxPossible) * 100)
+      : dailyStats.reviewed > 0
+        ? Math.round((dailyStats.correct / (dailyStats.reviewed * 4)) * 100)
+        : 0;
 
   return (
     <div className="flex w-full flex-col items-center px-4 py-8">
@@ -41,7 +43,7 @@ export function SessionSummary({ dailyStats }: SessionSummaryProps) {
                   {dailyStats.correct}
                 </p>
                 <p className="text-sm text-zinc-400">
-                  Correct
+                  Points Scored
                 </p>
               </div>
             </div>

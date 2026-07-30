@@ -34,6 +34,7 @@ export type QuizState =
 export interface DailyStats {
   reviewed: number;
   correct: number;
+  maxPossible: number;
   currentStreak: number;
   longestStreak: number;
 }
@@ -112,10 +113,11 @@ export function useQuizStateMachine(
   const [subscriptionBlocked, setSubscriptionBlocked] = useState(false);
 
   // Daily stats: baseline from API + session increments
-  const [dailyBaseline, setDailyBaseline] = useState({ reviewed: 0, correct: 0 });
+  const [dailyBaseline, setDailyBaseline] = useState({ reviewed: 0, correct: 0, maxPossible: 0 });
   const [sessionStats, setSessionStats] = useState({
     reviewed: 0,
     correct: 0,
+    maxPossible: 0,
     currentStreak: 0,
     longestStreak: 0,
   });
@@ -123,6 +125,7 @@ export function useQuizStateMachine(
   const dailyStats: DailyStats = {
     reviewed: dailyBaseline.reviewed + sessionStats.reviewed,
     correct: dailyBaseline.correct + sessionStats.correct,
+    maxPossible: dailyBaseline.maxPossible + sessionStats.maxPossible,
     currentStreak: sessionStats.currentStreak,
     longestStreak: sessionStats.longestStreak,
   };
@@ -171,6 +174,7 @@ export function useQuizStateMachine(
           setDailyBaseline({
             reviewed: todayRes.value.reviewedToday ?? 0,
             correct: todayRes.value.correctToday ?? 0,
+            maxPossible: todayRes.value.maxPossibleToday ?? 0,
           });
         }
 
@@ -560,11 +564,15 @@ export function useQuizStateMachine(
       const currentCard = cardRef.current;
       if (!currentCard || !sessionId || !currentCard.sentence) return;
       try {
-        // Points logic for accuracy stats: 1 point for translation, 1 point for pinyin
-        // Rating logic for SRS: GOOD only if both correct on first try
-        const pointsGained = isPhonetic
-          ? (translationCorrect ? 1.0 : 0)
-          : (translationCorrect ? 0.5 : 0) + (readingCorrect ? 0.5 : 0);
+        // Points logic for accuracy stats:
+        // 2 points for full translated sentence, 1 point for target word only, 0 for target word incorrect
+        // 2 points for reading/pronunciation correct
+        const translationPoints = translationCorrect
+          ? (currentCard.translationResult?.sentenceCorrect ? 2 : 1)
+          : 0;
+        const readingPoints = isPhonetic ? 0 : (readingCorrect ? 2 : 0);
+        const pointsGained = translationPoints + readingPoints;
+        const maxPoints = isPhonetic ? 2 : 4;
 
         const cardCorrect = isInitialTry && translationCorrect && readingCorrect;
 
@@ -575,11 +583,13 @@ export function useQuizStateMachine(
         setSessionStats((prev) => {
           const newReviewed = prev.reviewed + 1;
           const newCorrect = prev.correct + pointsGained;
+          const newMaxPossible = prev.maxPossible + maxPoints;
           const newStreak = cardCorrect ? prev.currentStreak + 1 : 0;
           const newLongest = Math.max(prev.longestStreak, newStreak);
           return {
             reviewed: newReviewed,
             correct: newCorrect,
+            maxPossible: newMaxPossible,
             currentStreak: newStreak,
             longestStreak: newLongest,
           };
@@ -595,6 +605,7 @@ export function useQuizStateMachine(
           userTranslation: currentCard.userTranslation || "no translation",
           correctTranslation: currentCard.sentence.translation,
           translationCorrect,
+          sentenceCorrect: Boolean(currentCard.translationResult?.sentenceCorrect),
           userReading: isPhonetic ? undefined : (currentCard.userReading || "unknown"),
           readingCorrect: isPhonetic ? undefined : readingCorrect,
           userPinyin: isPhonetic ? undefined : (currentCard.userReading || "unknown"),

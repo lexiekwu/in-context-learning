@@ -60,6 +60,7 @@ export async function GET() {
       reviewedToday: todayStats.reviewedToday,
       newToday: todayStats.newCardsStudied,
       correctToday: todayStats.correctToday,
+      maxPossibleToday: todayStats.maxPossibleToday,
       streak,
       accuracy: todayStats.accuracy,
       nextDueAt: nextDueCard?.due?.toISOString() ?? null,
