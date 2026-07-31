@@ -230,18 +230,17 @@ describe("getTodayReviewStats", () => {
     mockDb.reviewLog.count.mockResolvedValueOnce(2); // newCardsStudied
 
     mockDb.reviewLog.findMany.mockResolvedValue([
-      { translationCorrect: true, sentenceCorrect: true, readingCorrect: true }, // 2 + 2 = 4 points (max 4)
-      { translationCorrect: true, sentenceCorrect: false, readingCorrect: true }, // 1 + 2 = 3 points (max 4)
-      { translationCorrect: false, sentenceCorrect: false, readingCorrect: true }, // 0 + 2 = 2 points (max 4)
-      { translationCorrect: true, sentenceCorrect: false, readingCorrect: false }, // 1 + 0 = 1 point (max 4)
-      { translationCorrect: false, sentenceCorrect: false, readingCorrect: false }, // 0 + 0 = 0 points (max 4)
+      { translationCorrect: true, sentenceCorrect: true, readingCorrect: true }, // 2 + 1 = 3 points (max 3)
+      { translationCorrect: true, sentenceCorrect: false, readingCorrect: true }, // 1 + 1 = 2 points (max 3)
+      { translationCorrect: true, sentenceCorrect: false, readingCorrect: false }, // 1 + 0 = 1 point (max 3)
+      { translationCorrect: false, sentenceCorrect: false, readingCorrect: false }, // 0 + 0 = 0 points (max 3)
     ]);
 
     const result = await getTodayReviewStats("user-1");
 
-    expect(result.reviewedToday).toBe(5);
-    expect(result.correctToday).toBe(10);
-    expect(result.maxPossibleToday).toBe(20);
+    expect(result.reviewedToday).toBe(4);
+    expect(result.correctToday).toBe(6);
+    expect(result.maxPossibleToday).toBe(12);
     expect(result.newCardsStudied).toBe(2);
     expect(result.accuracy).toBe(0.5);
   });

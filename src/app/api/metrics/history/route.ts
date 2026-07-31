@@ -144,9 +144,9 @@ export async function GET(request: NextRequest) {
       const translationPts = log.translationCorrect
         ? (log.sentenceCorrect ? 2 : 1)
         : 0;
-      const readingPts = log.readingCorrect ? 2 : 0;
+      const readingPts = log.readingCorrect ? 1 : 0;
       const correct = translationPts + readingPts;
-      const maxPts = log.readingCorrect !== null ? 4 : 2;
+      const maxPts = log.readingCorrect !== null ? 3 : 2;
 
       entry.total += lookedAt;
       entry.correct += correct;

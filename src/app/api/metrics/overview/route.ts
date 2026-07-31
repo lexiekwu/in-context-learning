@@ -69,12 +69,12 @@ export async function GET() {
     let totalMaxPossible = 0;
     let totalCorrect = 0;
     for (const r of recentReviews) {
-      const maxPts = r.readingCorrect !== null ? 4 : 2;
+      const maxPts = r.readingCorrect !== null ? 3 : 2;
       totalMaxPossible += maxPts;
       const translationPts = r.translationCorrect
         ? (r.sentenceCorrect ? 2 : 1)
         : 0;
-      const readingPts = r.readingCorrect ? 2 : 0;
+      const readingPts = r.readingCorrect ? 1 : 0;
       totalCorrect += translationPts + readingPts;
     }
 

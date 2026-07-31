@@ -128,7 +128,7 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
     expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(2);
   });
 
-  it("submits 2.0 points when translation is incorrect but reading is correct", async () => {
+  it("submits 1.0 points when translation is incorrect but reading is correct", async () => {
     const body = {
       sessionId: TEST_SESSION_ID,
       flashcardId: TEST_FLASHCARD_ID,
@@ -151,7 +151,7 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
 
     const sessionUpdateCall = mockDbStudySession.update.mock.calls[0][0];
     expect(sessionUpdateCall.data.cardsReviewed.increment).toBe(1);
-    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(2);
+    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(1);
   });
 
   it("submits 0.0 points when both translation and reading are incorrect", async () => {
@@ -180,7 +180,7 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
     expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(0.0);
   });
 
-  it("submits 4.0 points when full translated sentence and reading are correct", async () => {
+  it("submits 3.0 points when full translated sentence and reading are correct", async () => {
     const body = {
       sessionId: TEST_SESSION_ID,
       flashcardId: TEST_FLASHCARD_ID,
@@ -203,7 +203,7 @@ describe("POST /api/quiz/submit-result fractional accuracy", () => {
 
     const sessionUpdateCall = mockDbStudySession.update.mock.calls[0][0];
     expect(sessionUpdateCall.data.cardsReviewed.increment).toBe(1);
-    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(4);
+    expect(sessionUpdateCall.data.cardsCorrect.increment).toBe(3);
   });
 });
 

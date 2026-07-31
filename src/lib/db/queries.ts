@@ -205,12 +205,12 @@ export async function getTodayReviewStats(
     const translationPts = log.translationCorrect
       ? (log.sentenceCorrect ? 2 : 1)
       : 0;
-    const readingPts = log.readingCorrect ? 2 : 0;
+    const readingPts = log.readingCorrect ? 1 : 0;
     return acc + translationPts + readingPts;
   }, 0);
 
   const maxPossibleToday = logs.reduce((acc, log) => {
-    return acc + (log.readingCorrect !== null ? 4 : 2);
+    return acc + (log.readingCorrect !== null ? 3 : 2);
   }, 0);
 
   const accuracy = maxPossibleToday > 0 ? correctToday / maxPossibleToday : 0;

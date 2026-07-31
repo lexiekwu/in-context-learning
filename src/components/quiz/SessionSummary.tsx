@@ -12,7 +12,7 @@ export function SessionSummary({ dailyStats }: SessionSummaryProps) {
     dailyStats.maxPossible > 0
       ? Math.round((dailyStats.correct / dailyStats.maxPossible) * 100)
       : dailyStats.reviewed > 0
-        ? Math.round((dailyStats.correct / (dailyStats.reviewed * 4)) * 100)
+        ? Math.round((dailyStats.correct / (dailyStats.reviewed * 3)) * 100)
         : 0;
 
   return (

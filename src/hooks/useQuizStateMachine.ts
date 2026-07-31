@@ -565,14 +565,13 @@ export function useQuizStateMachine(
       if (!currentCard || !sessionId || !currentCard.sentence) return;
       try {
         // Points logic for accuracy stats:
-        // 2 points for full translated sentence, 1 point for target word only, 0 for target word incorrect
-        // 2 points for reading/pronunciation correct
+        // 1 point for reading/pronunciation correct (max 3 points total, or 2 for phonetic)
         const translationPoints = translationCorrect
           ? (currentCard.translationResult?.sentenceCorrect ? 2 : 1)
           : 0;
-        const readingPoints = isPhonetic ? 0 : (readingCorrect ? 2 : 0);
+        const readingPoints = isPhonetic ? 0 : (readingCorrect ? 1 : 0);
         const pointsGained = translationPoints + readingPoints;
-        const maxPoints = isPhonetic ? 2 : 4;
+        const maxPoints = isPhonetic ? 2 : 3;
 
         const cardCorrect = isInitialTry && translationCorrect && readingCorrect;
 

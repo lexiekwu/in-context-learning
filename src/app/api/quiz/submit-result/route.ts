@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       : 0;
     const readingPoints =
       effectiveReadingCorrect !== null
-        ? (effectiveReadingCorrect ? 2 : 0)
+        ? (effectiveReadingCorrect ? 1 : 0)
         : 0;
     const pointsGained = translationPoints + readingPoints;
 
